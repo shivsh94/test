@@ -2,7 +2,7 @@ import React from 'react';
 // import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Card } from '@/components/ui/card';
 // import { Plus } from 'lucide-react';
-import { useCart } from '@/context/FoodCartContext';
+// import { useCart } from '@/context/FoodCartContext';
 // import Image from 'next/image';
 
 // type MealAddon = {

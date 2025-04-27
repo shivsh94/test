@@ -1,62 +1,63 @@
 import React from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Plus } from 'lucide-react';
+// import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
+// import { Plus } from 'lucide-react';
 import { useCart } from '@/context/FoodCartContext';
-import Image from 'next/image';
+// import Image from 'next/image';
 
-type MealAddon = {
-  id: string;
-  name: string;
-  image: string;
-  price: number;
-};
+// type MealAddon = {
+//   id: string;
+//   name: string;
+//   photo: string;
+//   price: number;
+// };
 
-const mealAddons = [
-    {
-      id: 'choco-mouse',
-      name: 'Choco Mouse',
-      image: '/tea.jpg',
-      price: 59,
-    },
-    {
-      id: 'pepsi-bottle',
-      name: 'Pepsi Bottle',
-      image: '/tea.jpg',
-      price: 60,
-    },
-    {
-      id: 'extra-crunchy',
-      name: 'Extra Crunchy',
-      image: '/tea.jpg',
-      price: 20,
-    },
-    {
-      id: 'black-forest',
-      name: 'Black Forest',
-      image: '/tea.jpg',
-      price: 59,
-    },
-  ];
+// const mealAddons = [
+//     {
+//       id: 'choco-mouse',
+//       name: 'Choco Mouse',
+//       image: '/tea.jpg',
+//       price: 59,
+//     },
+//     {
+//       id: 'pepsi-bottle',
+//       name: 'Pepsi Bottle',
+//       image: '/tea.jpg',
+//       price: 60,
+//     },
+//     {
+//       id: 'extra-crunchy',
+//       name: 'Extra Crunchy',
+//       image: '/tea.jpg',
+//       price: 20,
+//     },
+//     {
+//       id: 'black-forest',
+//       name: 'Black Forest',
+//       image: '/tea.jpg',
+//       price: 59,
+//     },
+//   ];
 
 const CompleteYourMeal = () => {
-  const { addToCart } = useCart();  
+  // const { addToCart } = useCart();  
 
-  const handleAddAddon = (addon: MealAddon) => {
-    const cartItem = {
-      ...addon,
-      category: '', // Adding a category for the item
-      quantity: 1,       // Setting a default quantity
-    };
-    addToCart(cartItem); 
-  };
+  // const handleAddAddon = (addon: MealAddon) => {
+  //   const cartItem = {
+  //     ...addon,
+  //     category: '', // Adding a category for the item
+  //     quantity: 1,       // Setting a default quantity
+  //   };
+  //   addToCart(cartItem); 
+  // };
   return (
     <Card className="w-full">
-      <CardHeader>
+      {/* <CardHeader>
         <CardTitle className='text-zinc-500'>Complete Your Meal</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex overflow-x-auto gap-4 custom-scrollbar">
-          {mealAddons.map((addon) => (
+        <div className="flex overflow-x-auto gap-4 custom-scrollbar"> */}
+          {/* {mealAddons.map((addon) => (
             <div key={addon.id} className="relative w-24 flex flex-col items-center p-2 flex-shrink-0">
               <Image
                 src={addon.image}
@@ -74,10 +75,10 @@ const CompleteYourMeal = () => {
                 </p>
                 <p className="text-gray-500">₹{addon.price}</p>
               </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
+            </div> */}
+          {/* ))} */}
+        {/* </div>
+      </CardContent> */}
     </Card>
   );
 };

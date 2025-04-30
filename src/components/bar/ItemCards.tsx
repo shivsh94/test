@@ -86,8 +86,6 @@ export function BeverageItemCard({ item, onAddClick }: BeverageItemCardProps) {
           open={showAddons}
           onOpenChange={setShowAddons}
           item={item}
-          category=""
-          categoryId=""
         />
       )}
     </div>

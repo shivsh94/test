@@ -6,8 +6,8 @@ import { ChevronLeft } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useSearch } from "@/hooks/useSearch";
 import { Command, CommandInput, CommandList } from "@/components/ui/command";
-import { useCart } from "@/context/FoodCartContext";
-import CartButton from "@/components/cart/cartButton";
+// import { useCart } from "@/context/FoodCartContext";
+// import CartButton from "@/components/cart/cartButton";
 import { useCategoryStore, useMenuStore } from "@/store/useProjectStore";
 import { useRouter } from "next/navigation";
 
@@ -15,11 +15,11 @@ export default function CategoryPage() {
   const { menuItems } = useMenuStore();
   const { categories } = useCategoryStore();
   const { categoryId } = useParams();
-  const { cartItems } = useCart();
+  // const { cartItems } = useCart();
 
   const barItems = menuItems.filter((item) => item.category_id === categoryId);
   const category = categories.find((cat) => cat.id === categoryId);
-  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  // const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const router = useRouter();
 
   const { searchQuery, setSearchQuery, filteredItems } = useSearch(barItems);
@@ -38,7 +38,7 @@ export default function CategoryPage() {
 
   return (
     <main className="container mx-auto p-4">
-      <CartButton totalItems={totalItems} />
+      {/* <CartButton totalItems={totalItems} /> */}
 
       <div className="px-2 my-1">
         <Command shouldFilter={false} className="rounded-lg border">

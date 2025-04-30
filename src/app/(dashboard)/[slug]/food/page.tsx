@@ -2,11 +2,11 @@
 
 import Menu from '@/components/food/Menu';
 import FoodComponent from '@/components/food/FoodComponent';
+import useCartStore from '@/store/useCartStore';
 import CartButton from '@/components/cart/cartButton';
-import { useCart } from '@/context/FoodCartContext';
 
 export default function Page() {
-  const { cartItems } = useCart();
+  const { cartItems } = useCartStore();
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 

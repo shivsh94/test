@@ -8,7 +8,7 @@ export interface CartItem {
   name: string;
   price: number;
   photo?: string;
-  category: string;
+  // category: string;
   size?: '30ml' | '60ml' | 'Half' | 'Full'; 
   quantity: number;
   menuItemId: string;

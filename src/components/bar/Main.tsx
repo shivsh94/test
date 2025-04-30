@@ -10,7 +10,7 @@ export default function CocktailsPage() {
   
   const categoryList = Array.isArray(categories) ? categories : [];
   const Barcategories = categoryList.filter(
-    item => item.outlet === "Bar" 
+    item => item.outlet === "Food" 
   );
 
   return (

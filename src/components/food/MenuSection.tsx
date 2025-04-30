@@ -63,8 +63,6 @@ export function MenuSection({
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
 
-    console.log("title", title);
-
   const getAvailableDays = () => {
     if (!categoryDays) return "";
 

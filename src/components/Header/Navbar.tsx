@@ -19,11 +19,13 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ slug }) => {
   const { hotel, isLoading, isError } = useHotelData(slug);
+  // const cart = useCartData();
   const idData = useIdStore((state) => state.idData);
   const [showDrawer, setShowDrawer] = useState(false);
   const pathname = usePathname();
   const [isShown, setIsShown] = useState<boolean>(false);
 
+  //  console.log("cart", cart);
 
 
   useEffect(() => {

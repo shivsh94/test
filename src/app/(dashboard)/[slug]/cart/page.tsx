@@ -4,17 +4,23 @@ import { Trash2 } from "lucide-react";
 import MealAddons from "@/components/cart/MealAddons";
 import Savings from "@/components/cart/Savings";
 import useCartStore from "@/store/useCartStore";
-import { useMenuStore} from "@/store/useProjectStore";
+import { useMenuStore } from "@/store/useProjectStore";
 import { useEffect } from "react";
 import { useDeleteCartItem, useUpdateCart } from "@/hooks/useCartData";
+import Image from "next/image";
 
 export default function CartPage() {
   const { cartItems = [] } = useCartStore();
   const { menuItems = [] } = useMenuStore();
-  
-  const { mutate: updateCartItem, isPending: isUpdatePending } = useUpdateCart();
-  const { mutate: deleteItem, isPending: isDeletePending } = useDeleteCartItem();
-  
+
+  // console.log("Cart Items:", cartItems);
+  // console.log("Menu Items:", menuItems);
+
+  const { mutate: updateCartItem, isPending: isUpdatePending } =
+    useUpdateCart();
+  const { mutate: deleteItem, isPending: isDeletePending } =
+    useDeleteCartItem();
+
   const isPending = isUpdatePending || isDeletePending;
 
   useEffect(() => {
@@ -25,7 +31,9 @@ export default function CartPage() {
         );
 
         if (!matchedMenuItem) {
-          console.warn(`No menu item match found for item_id: ${cartItem.item_id}`);
+          console.warn(
+            `No menu item match found for item_id: ${cartItem.item_id}`
+          );
         }
       });
     }
@@ -35,7 +43,7 @@ export default function CartPage() {
     deleteItem(cartId);
   };
 
-  const updateQuantity = (item: typeof cartItems[0], newQuantity: number) => {
+  const updateQuantity = (item: (typeof cartItems)[0], newQuantity: number) => {
     if (newQuantity <= 0) {
       removeFromCart(item.id);
       return;
@@ -45,15 +53,15 @@ export default function CartPage() {
       cart_id: item.id,
       item_id: item.item_id,
       sub_item_id: item.sub_item_id || null,
-      quantity: newQuantity
+      quantity: newQuantity,
     });
   };
 
-  const incrementQuantity = (item: typeof cartItems[0]) => {
+  const incrementQuantity = (item: (typeof cartItems)[0]) => {
     updateQuantity(item, item.quantity + 1);
   };
 
-  const decrementQuantity = (item: typeof cartItems[0]) => {
+  const decrementQuantity = (item: (typeof cartItems)[0]) => {
     updateQuantity(item, item.quantity - 1);
   };
 
@@ -76,11 +84,9 @@ export default function CartPage() {
             return (
               <div
                 key={item.id}
-                className="flex items-center space-x-4 border p-2 w-full justify-between rounded-xl shadow-sm"
+                className="flex items-center border p-2 w-full justify-between rounded-xl shadow-sm"
               >
-                <div>
-                  {/* Optional image placeholder */}
-                </div>
+                <div>{/* Optional image placeholder */}</div>
                 <div className="flex-1">
                   <h3 className="font-semibold text-base">{displayName}</h3>
                   {displaySubItemName && (
@@ -91,6 +97,21 @@ export default function CartPage() {
                   <p className="text-base mt-2">
                     ₹ {(Number(effectivePrice) * item.quantity).toFixed(2)}
                   </p>
+
+                  <Image
+                    src={
+                      menuItem?.food_type === "Vegetarian"
+                        ? "/veg.png"
+                        : "/nonveg.png"
+                    }
+                    width={20}
+                    height={20}
+                    alt={
+                      menuItem?.food_type === "Vegetarian"
+                        ? "Vegetarian"
+                        : "Non-vegetarian"
+                    }
+                  />
                 </div>
                 <div className="flex flex-col items-end justify-between h-full space-y-4">
                   <Button

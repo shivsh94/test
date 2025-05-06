@@ -1,4 +1,6 @@
 import axios from "axios";
+axios.defaults.baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
 
 export const userInfo = async (
   id: string, 
@@ -7,7 +9,7 @@ export const userInfo = async (
   contact: string
 ) => {
   const res = await axios.post(
-    `http://localhost:8000/server/guest/v1/customer/${id}/${company_id}/register/`,
+    `/customer/${id}/${company_id}/register/`,
     { name, contact }
   );
   return res.data;

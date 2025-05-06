@@ -18,49 +18,13 @@ interface Preferences {
 
 type DayOfWeek = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
 
-
-
-// interface MenuItem {
-//   id: string;
-//   name: string;
-//   category_id: string;
-//   description?: string;
-//   food_type?: string;
-//   labels?: string[];
-//   price: string;
-//   position: number;
-//   is_open: boolean;
-//   outlet: string;
-//   context?: {
-//     days?: Record<DayOfWeek, boolean>;
-//     timings?: Array<{ start_time?: string; end_time?: string }>;
-//   };
-//   available?: boolean;
-// }
-
-// interface Category {
-//   id: string;
-//   name: string;
-//   outlet: string;
-//   position: number;
-//   is_open: boolean;
-//   items: MenuItem[];
-//   available?: boolean;
-//   count?: number;
-  
-//   context?: {
-//     days?: Record<DayOfWeek, boolean>;
-//     timings?: Array<{ start_time?: string; end_time?: string }>;
-//   };
-// }
-
 export const useMenuFilters = () => {
   const { categories } = useCategoryStore();
   const { menuItems } = useMenuStore();
   const { labelItems } = useLabelStore();
 
-  console.log("Categories:", categories);
-  console.log("Menu Items:", menuItems);
+  // console.log("Categories:", categories);
+  // console.log("Menu Items:", menuItems);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [preferences, setPreferences] = useState<Preferences>({

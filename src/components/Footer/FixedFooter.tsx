@@ -1,5 +1,5 @@
 "use client";
-import { FC } from "react";
+import { FC, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Home, MapPin, Utensils, Martini, ShoppingCart } from "lucide-react";
@@ -10,15 +10,27 @@ const Footer: FC = () => {
   const currentPath = usePathname();
   const { cartItems } = useCart();
   const hotelData = useSlugStore((state) => state.data);
+  const [isShown, setIsShown] = useState<boolean>(false);
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  useEffect(() => {
+    if (
+      currentPath.includes("/requests") ||
+      currentPath.includes("/place-request")
+    ) {
+      setIsShown(false);
+    } else {
+      setIsShown(true);
+    }
+  }, [currentPath]);
 
   // Get base path like /project1-in
   const basePath = currentPath.split("/")[1];
   const prefix = `/${basePath}`;
 
   const menuItems = [
-    { label: "Home", icon: <Home size={24} />, path: "" },  
+    { label: "Home", icon: <Home size={24} />, path: "" },
     { label: "Nearby", icon: <MapPin size={24} />, path: "nearby" },
     { label: "Food", icon: <Utensils size={24} />, path: "food" },
     { label: "Bar", icon: <Martini size={24} />, path: "bar" },
@@ -38,14 +50,12 @@ const Footer: FC = () => {
     },
   ];
 
+  if (!isShown) return null;
   return (
     <footer className="sticky bottom-0 w-full h-16 bg-white/60 backdrop-blur-lg shadow-2xl z-50 border-t border-gray-200">
       <nav className="flex justify-evenly h-full">
         {menuItems.map((item, index) => {
-          const href =
-            item.path === ""
-              ? prefix
-              : `${prefix}/${item.path}`;
+          const href = item.path === "" ? prefix : `${prefix}/${item.path}`;
           const isActive = currentPath === href;
 
           return (
@@ -54,14 +64,11 @@ const Footer: FC = () => {
               key={index}
               className="flex flex-col items-center justify-center w-16 transition-colors duration-200 cursor-pointer"
               style={{
-                color: isActive
-                  ? hotelData?.company?.primary_color
-                  : "black",
+                color: isActive ? hotelData?.company?.primary_color : "black",
               }}
               onMouseEnter={(e) => {
                 if (!isActive && hotelData?.company?.primary_color) {
-                  e.currentTarget.style.color =
-                    hotelData.company.primary_color;
+                  e.currentTarget.style.color = hotelData.company.primary_color;
                 }
               }}
               onMouseLeave={(e) => {

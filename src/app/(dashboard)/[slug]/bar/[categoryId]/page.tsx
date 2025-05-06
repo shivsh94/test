@@ -1,7 +1,6 @@
 "use client";
 import React from "react";
 import { BeverageItemCard } from "@/components/bar/ItemCards";
-import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useSearch } from "@/hooks/useSearch";
@@ -34,7 +33,7 @@ export default function CategoryPage() {
 
   const categoryList = Array.isArray(categories) ? categories : [];
   const Barcategories = categoryList.filter((item) => item.outlet === "Bar");
-  console.log("Bar Categories:", Barcategories);
+  // console.log("Bar Categories:", Barcategories);
 
   return (
     <main className="container mx-auto p-4">
@@ -52,12 +51,12 @@ export default function CategoryPage() {
           </CommandList>
         </Command>
       </div>
-      <div className="flex space-x-2 items-center my-4">
-        <Link href="/bar" className="text-foreground">
-          <ChevronLeft />
-        </Link>
-        <h1 className="text-lg font-bold">{category?.name}</h1>
-      </div>
+        <div className="flex space-x-2 items-center my-4">
+          <div onClick={() => router.back()} className="text-foreground">
+            <ChevronLeft />
+          </div>
+          <h1 className="text-lg font-bold">{category?.name}</h1>
+        </div>
 
       {/* Items List */}
       <div className="space-y-4">

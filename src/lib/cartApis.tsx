@@ -1,9 +1,10 @@
 import { CartItem } from "@/store/useCartStore";
 import axios from "axios";
+axios.defaults.baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 export const getCart = async (entityId: string, customerId: string) => {
   const res = await axios.get(
-    `http://localhost:8000/server/guest/v1/cart/${entityId}/customer/${customerId}/list/`
+    `/cart/${entityId}/customer/${customerId}/list/`
   );
   return res.data;
 };
@@ -18,7 +19,7 @@ export const addToCart = async (
 
   try {
     const res = await axios.post(
-      `http://localhost:8000/server/guest/v1/cart/${entity_id}/add/`,
+      `/cart/${entity_id}/add/`,
       {
         customer_id,
         item_id,
@@ -55,7 +56,7 @@ export const updateCart = async (
     };
 
     const res = await axios.put(
-      `http://localhost:8000/server/guest/v1/cart/${entity_id}/update/${cart_id}/`,
+      `/cart/${entity_id}/update/${cart_id}/`,
       payload
     );
     return res.data;
@@ -67,14 +68,14 @@ export const updateCart = async (
 
 export const deleteItem = async (entity_id: string, cart_id: string) => {
   const res = await axios.delete(
-    `http://localhost:8000/server/guest/v1/cart/${entity_id}/delete/${cart_id}/`
+    `/cart/${entity_id}/delete/${cart_id}/`
   );
   return res.data;
 };
 
 export const clearCart = async (entity_id: string, customer_id: string) => {
   const res = await axios.delete(
-    `http://localhost:8000/server/guest/v1/cart/${entity_id}/clear/${customer_id}/`
+    `/cart/${entity_id}/clear/${customer_id}/`
   );
   return res.data;
 };

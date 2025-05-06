@@ -1,4 +1,5 @@
 import axios from "axios";
+axios.defaults.baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 export const createOrder = async (
   entity_id: string,
@@ -9,7 +10,7 @@ export const createOrder = async (
 ) => {
   try {
     const response = await axios.post(
-      `http://localhost:8000/server/guest/v1/order/${entity_id}/?pay_later=${pay_later}`,
+      `/order/${entity_id}/?pay_later=${pay_later}`,
       {
         customer_id,
         remark,

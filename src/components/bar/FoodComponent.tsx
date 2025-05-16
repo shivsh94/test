@@ -4,7 +4,7 @@ import { useRef, useEffect, useState } from "react";
 import { Command, CommandInput, CommandList } from "@/components/ui/command";
 import { MenuSection } from "./MenuSection";
 import { MenuFilters } from "./MenuFilters";
-import { useMenuFilters } from "@/hooks/useMenuFilter";
+import { useMenuFilters } from "@/hooks/useBarFilter";
 
 export default function FilteredMenu() {
   const [isSticky, setIsSticky] = useState(false);
@@ -85,12 +85,12 @@ export default function FilteredMenu() {
           // Convert the Map entries to an array and map over them
           Array.from(filteredMenuData).map(([categoryKey, items]) => (
             <MenuSection
-              key={categoryKey.id}
-              id={categoryKey.id} 
-              title={categoryKey.name} 
+              key={categoryKey.id} // Use the category ID as the key
+              id={categoryKey.id} // Use the category ID
+              title={categoryKey.name} // Use the category name as the title
               menuItems={items.map((item) => ({
                 ...item,
-                price: item.price ?? "", 
+                price: item.price ?? "", // Convert null to an empty string
                 sub_items: item.sub_items.map((subItem) => ({
                   ...subItem,
           

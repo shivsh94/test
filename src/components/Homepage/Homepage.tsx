@@ -1,4 +1,4 @@
-import Activities from "./Activities"
+import Activities from "./upsell/Activities"
 import Navigation from "./Navigation"
 import WelcomeClient from "./WelcomeClient"
 

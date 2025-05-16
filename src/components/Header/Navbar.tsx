@@ -12,6 +12,7 @@ import Image from "next/image";
 import PopUpForm from "../Register-Form/popUpForm";
 import { usePathname } from "next/navigation";
 import { savedResponse } from "@/utils/storageUtils";
+import { useCheckinAttributes } from "@/hooks/useCheckinData";
 
 interface NavbarProps {
   slug: string;
@@ -19,17 +20,23 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ slug }) => {
   const { hotel, isLoading, isError } = useHotelData(slug);
-  // const cart = useCartData();
   const idData = useIdStore((state) => state.idData);
   const [showDrawer, setShowDrawer] = useState(false);
   const pathname = usePathname();
+  const checkinData = useCheckinAttributes();
   const [isShown, setIsShown] = useState<boolean>(false);
 
-  //  console.log("cart", cart);
+  console.log("checkin",checkinData);
+
 
 
   useEffect(() => {
-    if (pathname.includes("/cart") || pathname.includes("/requests") || pathname.includes("/place-request")) {
+    if (
+      pathname.includes("/cart") ||
+      pathname.includes("/requests") ||
+      pathname.includes("/place-request") ||
+      pathname.includes("/check-in") 
+    ) {
       setIsShown(false);
     } else {
       setIsShown(true);
@@ -79,7 +86,7 @@ const Navbar: React.FC<NavbarProps> = ({ slug }) => {
   const { company, photos, name, city, region, country } = hotel;
   const primaryColor = company?.primary_color || "#1e40af";
 
-  if(!isShown) return null;
+  if (!isShown) return null;
 
   return (
     <div className="relative font-sans">
@@ -158,7 +165,7 @@ const Navbar: React.FC<NavbarProps> = ({ slug }) => {
             >
               <CardHeader className="flex flex-col items-center p-4">
                 <Link
-                  href={card.link}
+                  href={card.link === "/check-in" ? `${window.location.href + card.link}` : card.link}
                   className="flex flex-col items-center w-full transition-colors"
                   style={{
                     color: isCheckIn ? "white" : primaryColor,
@@ -186,10 +193,7 @@ const Navbar: React.FC<NavbarProps> = ({ slug }) => {
           );
         })}
       </div>
-      <PopUpForm
-        open={showDrawer}
-        onClose={() => setShowDrawer(false)}
-      />
+      <PopUpForm open={showDrawer} onClose={() => setShowDrawer(false)} />
     </div>
   );
 };

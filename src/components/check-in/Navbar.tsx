@@ -1,14 +1,16 @@
 'use client';
 
 import React, { useState } from 'react';
-// import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Document from './Document';
 import PersonalInformationStep from './UserInfo';
-import SignatureStep from './Signature';
 import Footer from "./Footer";
 import { ChevronLeft } from 'lucide-react'
 import { cn } from "@/lib/utils";
 import { useRouter } from 'next/navigation';
+import axios from 'axios';
+import { toast } from 'sonner';
+import { useDocumentFormStore } from '@/store/useDocumentFormStore';
+import { useDetailFormStore } from '@/store/useDetailFormStore';
 
 const steps = [
   {
@@ -23,26 +25,20 @@ const steps = [
     description: "Enter your personal details",
     component: PersonalInformationStep
   },
-  {
-    id: 3,
-    title: "Signature",
-    description: "Provide your electronic signature",
-    component: SignatureStep
-  }
 ];
 
 export default function CustomShadcnStepper() {
   const [activeStep, setActiveStep] = useState(1);
   const [isStepValid, setIsStepValid] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const router = useRouter();
 
   const handleValidationChange = (isValid: boolean) => {
-    console.log('Validation changed:', isValid); // For debugging
     setIsStepValid(isValid);
   };
 
   const handleNext = () => {
-    if (activeStep < steps.length) {
+    if (activeStep < steps.length && isStepValid) {
       setActiveStep(activeStep + 1);
       setIsStepValid(false); // Reset validation when moving to next step
     }
@@ -50,30 +46,80 @@ export default function CustomShadcnStepper() {
 
   const handlePrevious = () => {
     if (activeStep === 1) {
-      router.back()
+      router.back();
     } else if (activeStep > 1) {
       setActiveStep(activeStep - 1);
     }
   };
 
-  const handleSubmit = async () => {
-    if (activeStep === steps.length) {
-      setIsSubmitting(true);
-      try {
-        const signatureData = document.querySelector('canvas')?.toDataURL();
-        
-        if (signatureData) {
-          console.log("Signature Data:", signatureData);
-          // Handle successful submission (e.g., show success message, redirect)
-          router.push('/'); // or wherever you want to redirect
-        } else {
-          console.log("No signature found");
-        }
-      } catch (error) {
-        console.error('Submission error:', error);
-      } finally {
-        setIsSubmitting(false);
+  const preparePayload = () => {
+    const documentFormValues = useDocumentFormStore.getState().formValues;
+    const detailFormValues = useDetailFormStore.getState().formValues;
+    
+    const details: any = {
+      context: {
+        extras: {}
       }
+    };
+    
+    // Process detail form values
+    Object.entries(detailFormValues).forEach(([fieldName, formValue]) => {
+      if (formValue.is_default) {
+        details[fieldName.toLowerCase()] = formValue.value;
+      } else {
+        details.context.extras[fieldName] = formValue.value;
+      }
+    });
+    
+    // Prepare document object
+    const document: any = {
+      context: {
+        extras: {}
+      }
+    };
+    
+    // Process document form values
+    Object.entries(documentFormValues).forEach(([fieldName, formValue]) => {
+      const normalizedFieldName = fieldName.toLowerCase().startsWith('doc_') 
+        ? fieldName.toLowerCase().replace('doc_', '') 
+        : fieldName.toLowerCase();
+      
+      if (formValue.is_default) {
+        document[normalizedFieldName] = formValue.value;
+      } else {
+        document.context.extras[fieldName] = formValue.value;
+      }
+    });
+
+    // Get signature if available
+    const signatureData = document.querySelector('canvas')?.toDataURL();
+
+    return {
+      details,
+      document,
+      signature: signatureData,
+      is_tnc_accepted: true
+    };
+  };
+
+  const handleSubmit = async () => {
+    if (!isStepValid) return;
+    
+    setIsSubmitting(true);
+    try {
+      const payload = preparePayload();
+      console.log("Submitting payload:", payload); 
+
+      const response = await axios.post('/checkin/', payload);
+      if(response){
+        toast.success("Check-in submitted successfully!");
+        router.push('/success'); 
+      }
+    } catch (error) {
+      console.error('Submission error:', error);
+      toast.error("Failed to submit check-in. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -97,79 +143,63 @@ export default function CustomShadcnStepper() {
   };
 
   const renderCurrentStep = () => {
-    switch (activeStep) {
-      case 1:
-        return <Document onValidationChange={handleValidationChange} />;
-      case 2:
-        return <PersonalInformationStep onValidationChange={handleValidationChange} />;
-      case 3:
-        return <SignatureStep onValidationChange={handleValidationChange} />;
-      default:
-        return null;
-    }
+    const StepComponent = steps[activeStep - 1].component;
+    return <StepComponent onValidationChange={handleValidationChange} />;
   };
 
-  const router = useRouter();
-
   return (
-    <div className="w-full mx-auto space-y-6 flex flex-col h-screen">
+    <div className="w-full relative mx-auto space-y-6 flex flex-col max-h-fit">
       <div className='sticky top-0 z-50 bg-white shadow-sm rounded-b'>
-      <div className="flex flex-1 shrink-0 items-center p-4 border-b">
-        <button
-          onClick={() => router.back()}
-          className="absolute text-gray-600 hover:text-gray-900"
-        >
-          <ChevronLeft className="w-6 h-6" />
-        </button>
-        <h1 className="mx-auto text-xl font-semibold">Contactless Checkin</h1>
-      </div>
-      {/* Step Navigation */}
-      <div className="flex justify-evenly items-baseline p-4 w-full">
-        {steps.map((step, index) => (
-          <React.Fragment key={step.id}>
-            <div className="flex flex-col items-center w-full">
-              <StepIndicator 
-                step={step.id} 
-                isActive={activeStep === step.id}
-                isCompleted={activeStep > step.id}
-              />
-              <div className={`mt-2 text-xs text-center font-medium ${activeStep === step.id ? "text-primary" : activeStep > step.id ? "text-green-600" : "text-muted-foreground"}`}>
-                {step.title}
+        <div className="flex flex-1 shrink-0 items-center p-4 border-b">
+          <button
+            onClick={() => router.back()}
+            className="absolute text-gray-600 hover:text-gray-900"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          <h1 className="mx-auto text-xl font-semibold">Contactless Checkin</h1>
+        </div>
+        
+        {/* Step Navigation */}
+        <div className="flex justify-evenly items-baseline p-4 w-full">
+          {steps.map((step, index) => (
+            <React.Fragment key={step.id}>
+              <div className="flex flex-col items-center w-full">
+                <StepIndicator 
+                  step={step.id} 
+                  isActive={activeStep === step.id}
+                  isCompleted={activeStep > step.id}
+                />
+                <div className={`mt-2 text-xs text-center font-medium ${
+                  activeStep === step.id ? "text-primary" : 
+                  activeStep > step.id ? "text-green-600" : 
+                  "text-muted-foreground"
+                }`}>
+                  {step.title}
+                </div>
               </div>
-            </div>
-            {/* Extend the line between steps */}
-            {index < steps.length - 1 && (
-              <div className={`h-1 w-full mx-2 transition-colors duration-300 ${activeStep > step.id ? "bg-green-500" : "bg-muted"}`} />
-            )}
-          </React.Fragment>
-        ))}
-      </div>
+            
+              {index < steps.length - 1 && (
+                <div className={`h-1 w-full mx-2 transition-colors duration-300 ${
+                  activeStep > step.id ? "bg-green-500" : "bg-muted"
+                }`} />
+              )}
+            </React.Fragment>
+          ))}
+        </div>
       </div>
       
       <div className='flex-1 flex flex-col items-center'>
         {renderCurrentStep()}
-      {/* <Card>
-        <CardHeader>
-          <CardTitle>{steps[activeStep - 1].title}</CardTitle>
-          <CardDescription>
-            {steps[activeStep - 1].description}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <CurrentStepComponent />
-        </CardContent>
-      </Card> */}
       </div>
 
-      {/* Footer for Navigation Buttons */}
       <Footer 
-        activeStep={activeStep} 
-        stepsLength={steps.length} 
-        handlePrevious={handlePrevious} 
+        activeStep={activeStep}
+        stepsLength={steps.length}
+        handlePrevious={handlePrevious}
         handleNext={activeStep === steps.length ? handleSubmit : handleNext}
         isValid={isStepValid}
-        isSubmitting={isSubmitting}
-      />
+        isSubmitting={isSubmitting}/>
     </div>
   );
 }

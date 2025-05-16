@@ -1,14 +1,26 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Check, ChevronsUpDown, X, ImagePlus, AlertTriangle } from "lucide-react";
+import React, { useRef, useEffect } from "react";
+import {
+  Check,
+  ChevronsUpDown,
+  X,
+  ImagePlus,
+  AlertTriangle,
+  Calendar as CalendarIcon,
+  Clock,
+  Link as LinkIcon,
+  FileText,
+  File,
+  CheckCircle,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Command,
   CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
+  CommandInput,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -16,50 +28,82 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 import countries from "world-countries";
-import axios from "axios";
 import Image from "next/image";
-
-const indiaDocumentTypes = ["Aadhar Card", "Driving License", "Voter ID", "Passport"];
-const otherDocumentTypes = ["Passport"];
+import useCheckinStore, { CheckinAttribute } from "@/store/useCheck-inStore";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import PhoneInput from "react-phone-number-input";
+import "react-phone-number-input/style.css";
+import { uploadFile } from "../../lib/uploadFile";
+import DocumentValidation from "./DocumentValidation";
+import { useDocumentFormStore } from "@/store/useDocumentFormStore";
 
 interface DocumentUploadFormProps {
   onValidationChange: (isValid: boolean) => void;
 }
 
-const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ onValidationChange }) => {
-  const [country, setCountry] = useState("India");
-  const [documentType, setDocumentType] = useState("");
-  const [frontImage, setFrontImage] = useState<File | null>(null);
-  const [backImage, setBackImage] = useState<File | null>(null);
-  const [frontPreview, setFrontPreview] = useState<string | null>(null);
-  const [backPreview, setBackPreview] = useState<string | null>(null);
-  const [frontUploadStatus, setFrontUploadStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
-  const [backUploadStatus, setBackUploadStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
-  const [frontFileError, setFrontFileError] = useState<string | null>(null);
-  const [backFileError, setBackFileError] = useState<string | null>(null);
-  const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
-  const [isDocumentDropdownOpen, setIsDocumentDropdownOpen] = useState(false);
-  
-  const frontInputRef = useRef<HTMLInputElement>(null);
-  const backInputRef = useRef<HTMLInputElement>(null);
+const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
+  onValidationChange,
+}) => {
+  const { checkinAttributes } = useCheckinStore();
+  const documentAttributes = React.useMemo(
+    () =>
+      checkinAttributes.filter((attr) => attr.show_on_screen === "Document"),
+    [checkinAttributes]
+  );
 
-  const countryList = Object.values(countries).map((c) => ({
-    value: c.name.common,
-    label: c.name.common,
-    key: c.cca3,
-  }));
+  const {
+    formValues,
+    fileUploads,
+    phoneNumberValidity,
+    dropdownStates,
+    datePickerStates,
+    selectedCountry,
+    selectedRegion,
+    isCountryDropdownOpen,
+    isRegionDropdownOpen,
+    initializeForm,
+    handleValueChange,
+    handlePhoneNumberChange,
+    // handleFileUpload,
+    removeFile,
+    toggleDropdown,
+    toggleDatePicker,
+    setSelectedCountry,
+    setSelectedRegion,
+    setIsCountryDropdownOpen,
+    setIsRegionDropdownOpen,
+  } = useDocumentFormStore();
 
-  const validateFile = (file: File): boolean => {
-    const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  useEffect(() => {
+    if (documentAttributes.length > 0) {
+      initializeForm(documentAttributes);
+    }
+  }, [documentAttributes, initializeForm]);
+
+  const validateFile = (file: File, fieldType: "Image" | "File"): boolean => {
+    const allowedImageTypes = ["image/jpeg", "image/png", "image/jpg"];
+    const allowedFileTypes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
     const MAX_SIZE_MB = 10;
 
-    // Check file type
-    if (!allowedTypes.includes(file.type)) {
+    if (fieldType === "Image" && !allowedImageTypes.includes(file.type)) {
+      return false;
+    }
+    if (fieldType === "File" && !allowedFileTypes.includes(file.type)) {
       return false;
     }
 
-    // Check file size
     const fileSizeMB = file.size / (1024 * 1024);
     if (fileSizeMB > MAX_SIZE_MB) {
       return false;
@@ -68,152 +112,234 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ onValidationCha
     return true;
   };
 
-  const compressAndUploadImage = async (file: File, isFront: boolean) => {
-    const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
-    
-    // Reset previous errors
-    if (isFront) {
-      setFrontFileError(null);
-    } else {
-      setBackFileError(null);
-    }
+  const compressAndUploadFile = async (
+    file: File,
+    fieldName: string,
+    fieldType: "Image" | "File"
+  ) => {
+    if (!validateFile(file, fieldType)) {
+      const allowedImageTypes = ["image/jpeg", "image/png", "image/jpg"];
+      const allowedFileTypes = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ];
+      const errorMessage =
+        fieldType === "Image"
+          ? !allowedImageTypes.includes(file.type)
+            ? "Invalid Image Format"
+            : "Image Size Limit Exceeded"
+          : !allowedFileTypes.includes(file.type)
+            ? "Invalid File Format"
+            : "File Size Limit Exceeded";
 
-    // Validate file
-    if (!validateFile(file)) {
-      const errorMessage = !allowedTypes.includes(file.type)
-        ? "Invalid File Format"
-        : "Size Limit Exceeded";
-      
-      if (isFront) {
-        setFrontFileError(errorMessage);
-        setFrontUploadStatus("error");
-      } else {
-        setBackFileError(errorMessage);
-        setBackUploadStatus("error");
-      }
+      useDocumentFormStore.setState((state) => ({
+        fileUploads: {
+          ...state.fileUploads,
+          [fieldName]: {
+            ...state.fileUploads[fieldName],
+            uploadStatus: "error",
+            fileError: errorMessage,
+          },
+        },
+      }));
       return;
     }
 
-    if (isFront) {
-      setFrontUploadStatus("uploading");
-    } else {
-      setBackUploadStatus("uploading");
-    }
-
-    const MAX_WIDTH = 600;
-    const MAX_SIZE_MB = 1;
-    const fileSizeMB = file.size / (1024 * 1024);
-
     try {
-      if (fileSizeMB > MAX_SIZE_MB) {
-        // Compress large files
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = async (event) => {
-          const srcEncoded = event.target?.result as string;
-          const img = new window.Image();
-          img.src = srcEncoded;
-      
-          img.onload = async () => {
-            const canvas = document.createElement("canvas");
-            const scaleSize = MAX_WIDTH / img.width;
-            canvas.width = MAX_WIDTH;
-            canvas.height = img.height * scaleSize;
-      
-            const ctx = canvas.getContext("2d");
-            if (ctx) {
-              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-              const compressedDataUrl = canvas.toDataURL("image/jpeg");
-              await uploadFile(compressedDataUrl, isFront);
-            }
+      useDocumentFormStore.setState((state) => ({
+        fileUploads: {
+          ...state.fileUploads,
+          [fieldName]: {
+            ...state.fileUploads[fieldName],
+            uploadStatus: "uploading",
+            fileError: null,
+          },
+        },
+      }));
+
+      if (fieldType === "Image") {
+        const MAX_WIDTH = 600;
+        const MAX_SIZE_MB = 1;
+        const fileSizeMB = file.size / (1024 * 1024);
+
+        if (fileSizeMB > MAX_SIZE_MB) {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = async (event) => {
+            const srcEncoded = event.target?.result as string;
+            const img = new window.Image();
+            img.src = srcEncoded;
+
+            img.onload = async () => {
+              const canvas = document.createElement("canvas");
+              const scaleSize = MAX_WIDTH / img.width;
+              canvas.width = MAX_WIDTH;
+              canvas.height = img.height * scaleSize;
+
+              const ctx = canvas.getContext("2d");
+              if (ctx) {
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob(
+                  async (blob) => {
+                    if (blob) {
+                      const compressedFile = new window.File(
+                        [blob],
+                        file.name,
+                        {
+                          type: "image/jpeg",
+                          lastModified: Date.now(),
+                        }
+                      );
+                      try {
+                        const result = await uploadFile(
+                          compressedFile,
+                          fieldName,
+                          fieldType,
+                          fileInputRefs
+                        );
+                        useDocumentFormStore.setState((state) => ({
+                          fileUploads: {
+                            ...state.fileUploads,
+                            [fieldName]: {
+                              ...state.fileUploads[fieldName],
+                              uploadStatus: "success",
+                              fileError: null,
+                            },
+                          },
+                          formValues: {
+                            ...state.formValues,
+                            [fieldName]: {
+                              value: result.url,
+                              is_default:
+                                state.formValues[fieldName]?.is_default ||
+                                false,
+                            },
+                          },
+                        }));
+                      } catch (error) {
+                        console.log("error",error);
+                        useDocumentFormStore.setState((state) => ({
+                          fileUploads: {
+                            ...state.fileUploads,
+                            [fieldName]: {
+                              ...state.fileUploads[fieldName],
+                              uploadStatus: "error",
+                              fileError: "Upload failed",
+                            },
+                          },
+                        }));
+                      }
+                    }
+                  },
+                  "image/jpeg",
+                  0.8
+                );
+              }
+            };
           };
-        };
+        } else {
+          try {
+            const result = await uploadFile(
+              file,
+              fieldName,
+              fieldType,
+              fileInputRefs
+            );
+            useDocumentFormStore.setState((state) => ({
+              fileUploads: {
+                ...state.fileUploads,
+                [fieldName]: {
+                  ...state.fileUploads[fieldName],
+                  uploadStatus: "success",
+                  fileError: null,
+                },
+              },
+              formValues: {
+                ...state.formValues,
+                [fieldName]: {
+                  value: result.url,
+                  is_default: state.formValues[fieldName]?.is_default || false,
+                },
+              },
+            }));
+          } catch (error) {
+            console.log("error",error);
+            useDocumentFormStore.setState((state) => ({
+              fileUploads: {
+                ...state.fileUploads,
+                [fieldName]: {
+                  ...state.fileUploads[fieldName],
+                  uploadStatus: "error",
+                  fileError: "Upload failed",
+                },
+              },
+            }));
+          }
+        }
       } else {
-        // Use FormData to upload smaller files directly
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("isFront", isFront.toString());
-        await fetch("/upload-endpoint", {
-          method: "POST",
-          body: formData,
-        });
-      }
-
-      if (isFront) {
-        setFrontUploadStatus("success");
-        console.log("success");
-      } else {
-        setBackUploadStatus("success");
-        console.log("success");
+        try {
+          const result = await uploadFile(
+            file,
+            fieldName,
+            fieldType,
+            fileInputRefs
+          );
+          useDocumentFormStore.setState((state) => ({
+            fileUploads: {
+              ...state.fileUploads,
+              [fieldName]: {
+                ...state.fileUploads[fieldName],
+                uploadStatus: "success",
+                fileError: null,
+              },
+            },
+            formValues: {
+              ...state.formValues,
+              [fieldName]: {
+                value: result.url,
+                is_default: state.formValues[fieldName]?.is_default || false,
+              },
+            },
+          }));
+        } catch (error) {
+          console.log("error",error);
+          useDocumentFormStore.setState((state) => ({
+            fileUploads: {
+              ...state.fileUploads,
+              [fieldName]: {
+                ...state.fileUploads[fieldName],
+                uploadStatus: "error",
+                fileError: "Upload failed",
+              },
+            },
+          }));
+        }
       }
     } catch (error) {
-      console.error("Upload failed:", error);
-      if (isFront) {
-        setFrontUploadStatus("error");
-      } else {
-        setBackUploadStatus("error");
-      }
+      console.log("error",error);
+      useDocumentFormStore.setState((state) => ({
+        fileUploads: {
+          ...state.fileUploads,
+          [fieldName]: {
+            ...state.fileUploads[fieldName],
+            uploadStatus: "error",
+            fileError: "An error occurred",
+          },
+        },
+      }));
     }
   };
 
-  const uploadFile = async (file: string | File, isFront: boolean) => {
-    const formData = new FormData();
-    const dateTime = Date.now();
-
-    formData.append("file", file instanceof File ? file : file);
-    formData.append("datetime", dateTime.toString());
-
-    try {
-      const response = await axios.post("/api/upload", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      if (isFront) {
-        setFrontImage(null);
-        if (frontInputRef.current) frontInputRef.current.value = "";
-      } else {
-        setBackImage(null);
-        if (backInputRef.current) backInputRef.current.value = "";
-      }
-
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  const handleImageUpload = (file: File, isFront: boolean) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (isFront) {
-        setFrontImage(file);
-        setFrontPreview(reader.result as string);
-      } else {
-        setBackImage(file);
-        setBackPreview(reader.result as string);
-      }
-      compressAndUploadImage(file, isFront);
+  const getDocumentTypes = (country: string) => {
+    const defaultDocTypes = ["Passport"];
+    const countrySpecificDocTypes: Record<string, string[]> = {
+      India: ["Aadhar Card", "Driving License", "Voter ID", "Passport"],
     };
-    reader.readAsDataURL(file);
+    return countrySpecificDocTypes[country] || defaultDocTypes;
   };
 
-  const removeImage = (isFront: boolean) => {
-    if (isFront) {
-      setFrontImage(null);
-      setFrontPreview(null);
-      setFrontUploadStatus("idle");
-      setFrontFileError(null);
-      if (frontInputRef.current) frontInputRef.current.value = "";
-    } else {
-      setBackImage(null);
-      setBackPreview(null);
-      setBackUploadStatus("idle");
-      setBackFileError(null);
-      if (backInputRef.current) backInputRef.current.value = "";
-    }
-  };
-
-  const ImageUploadBox = ({
+  const FileUploadBox = ({
     preview,
     onFileChange,
     onRemove,
@@ -221,22 +347,28 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ onValidationCha
     inputRef,
     uploadStatus,
     fileError,
+    isRequired,
+    fieldType,
   }: {
     preview: string | null;
     onFileChange: (file: File) => void;
     onRemove: () => void;
     label: string;
-    inputRef: React.RefObject<HTMLInputElement>;
+    inputRef: (el: HTMLInputElement | null) => void;
     uploadStatus: "idle" | "uploading" | "success" | "error";
     fileError: string | null;
+    isRequired: boolean;
+    fieldType: "Image" | "File";
   }) => (
     <div className="space-y-2">
-      <label className="block text-sm font-semibold">{label}</label>
+      <Label className="font-semibold">
+        {label} {isRequired && <span className="text-destructive">*</span>}
+      </Label>
       {fileError && (
-        <Alert variant="destructive" className="mb-2 flex items-center">
-          <div className="flex items-center space-x-2">
-            <AlertTriangle className="h-5 w-5 flex-shrink-0" />
-            <AlertDescription className="">{fileError}</AlertDescription>
+        <Alert variant="destructive" className="mb-2">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>{fileError}</AlertDescription>
           </div>
         </Alert>
       )}
@@ -244,39 +376,60 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ onValidationCha
         className={cn(
           "border-2 border-dashed rounded-lg p-4 text-center transition-colors duration-200",
           preview
-            ? "border-green-500 bg-green-50"
-            : "border-gray-300 hover:border-blue-500 hover:bg-blue-50",
-          uploadStatus === "uploading" && "border-yellow-500 bg-yellow-50",
-          uploadStatus === "success" && "border-green-500 bg-green-50",
-          uploadStatus === "error" && "border-red-500 bg-red-50"
+            ? "border-success bg-success/10"
+            : "border-border hover:border-primary hover:bg-primary/5",
+          uploadStatus === "uploading" && "border-warning bg-warning/10",
+          uploadStatus === "success" && "border-success bg-success/10",
+          uploadStatus === "error" && "border-destructive bg-destructive/10"
         )}
       >
         {!fileError && preview ? (
           <div className="relative">
             <div className="mb-2">
-              <p className="text-xs text-gray-500">{`Upload Status: ${uploadStatus.charAt(0).toUpperCase() + uploadStatus.slice(1)}`}</p>
+              <p className="text-xs text-muted-foreground">{`Upload Status: ${
+                uploadStatus.charAt(0).toUpperCase() + uploadStatus.slice(1)
+              }`}</p>
+              {uploadStatus === "uploading" && (
+                <div className="w-full bg-secondary rounded-full h-1.5 mt-1">
+                  <div className="bg-primary h-1.5 rounded-full animate-pulse"></div>
+                </div>
+              )}
             </div>
-            <Image
-              src={preview}
-              alt="Document preview"
-              width={200}
-              height={200}
-              priority={true}
-              className="max-h-48 mx-auto rounded-md object-contain"
-            />
-            <button
+            {fieldType === "Image" ? (
+              <Image
+                src={preview}
+                alt="Document preview"
+                width={200}
+                height={200}
+                priority={true}
+                className="max-h-48 mx-auto rounded-md object-contain"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center p-4">
+                <FileText className="h-12 w-12 text-muted-foreground mb-2" />
+                <p className="text-sm font-medium">
+                  {fileUploads[label]?.file?.name || "Uploaded File"}
+                </p>
+              </div>
+            )}
+            <Button
+              variant="destructive"
+              size="icon"
               onClick={onRemove}
-              className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 m-2"
+              className="absolute top-0 right-0 rounded-full p-1 m-2"
+              type="button"
             >
               <X className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         ) : (
           <div>
             <input
               ref={inputRef}
               type="file"
-              accept=".jpg,.jpeg,.png"
+              accept={
+                fieldType === "Image" ? ".jpg,.jpeg,.png" : ".pdf,.doc,.docx"
+              }
               onChange={(e) => {
                 if (e.target.files && e.target.files[0]) {
                   onFileChange(e.target.files[0]);
@@ -285,157 +438,712 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ onValidationCha
               className="hidden"
               id={`file-upload-${label.toLowerCase().replace(/\s+/g, "-")}`}
             />
-            <label
+            <Label
               htmlFor={`file-upload-${label.toLowerCase().replace(/\s+/g, "-")}`}
               className="cursor-pointer flex flex-col items-center"
             >
-              <ImagePlus className="h-12 w-12 text-gray-400 mb-2" />
-              <p className="text-sm text-gray-600">
+              {fieldType === "Image" ? (
+                <ImagePlus className="h-12 w-12 text-muted-foreground mb-2" />
+              ) : (
+                <File className="h-12 w-12 text-muted-foreground mb-2" />
+              )}
+              <p className="text-sm text-muted-foreground">
                 {uploadStatus === "uploading"
                   ? "Uploading..."
                   : uploadStatus === "success"
-                  ? "Upload Successful"
-                  : uploadStatus === "error"
-                  ? "Upload Failed, Try Again"
-                  : `Drag and drop or click to upload ${label.toLowerCase()}`}
+                    ? "Upload Successful"
+                    : uploadStatus === "error"
+                      ? "Upload Failed, Try Again"
+                      : `Drag and drop or click to upload ${label.toLowerCase()}`}
               </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Supports JPG, JPEG, PNG (Max 10MB)
+              <p className="text-xs text-muted-foreground mt-1">
+                {fieldType === "Image"
+                  ? "Supports JPG, JPEG, PNG (Max 10MB)"
+                  : "Supports PDF, DOC, DOCX (Max 10MB)"}
               </p>
-            </label>
+            </Label>
           </div>
         )}
       </div>
     </div>
   );
 
-  useEffect(() => {
-    // Check if required fields are filled
-    const isValid = !!documentType && !!frontImage;
-    
-    onValidationChange(isValid);
-  }, [country, documentType, frontImage, backImage]);
+  const renderField = (attribute: CheckinAttribute) => {
+    const { name, field_type, is_required, help_text, context, is_default } =
+      attribute;
+    const fieldKey = `${name}-${field_type}`;
+
+    switch (field_type) {
+      case "Text":
+        return (
+          <div key={fieldKey} className="flex flex-col space-y-2">
+            <Label className="font-semibold">
+              {name} {is_required && <span className="text-destructive">*</span>}
+              {is_default && <span className="text-success">(Default)</span>}
+            </Label>
+            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
+            <Input
+              type="text"
+              value={formValues[name]?.value || ""}
+              onChange={(e) =>
+                handleValueChange(name, e.target.value, is_default)
+              }
+              placeholder={`Enter ${name.toLowerCase()}`}
+            />
+          </div>
+        );
+
+      case "Long Text":
+        return (
+          <div key={fieldKey} className="flex flex-col space-y-2">
+            <Label className="font-semibold">
+              {name} {is_required && <span className="text-destructive">*</span>}
+              {is_default && <span className="text-success">(Default)</span>}
+            </Label>
+            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
+            <Textarea
+              value={formValues[name]?.value || ""}
+              onChange={(e) =>
+                handleValueChange(name, e.target.value, is_default)
+              }
+              placeholder={`Enter ${name.toLowerCase()}`}
+              rows={4}
+            />
+          </div>
+        );
+
+      case "Email":
+        return (
+          <div key={fieldKey} className="flex flex-col space-y-2">
+            <Label className="font-semibold">
+              {name} {is_required && <span className="text-destructive">*</span>}
+              {is_default && <span className="text-success">(Default)</span>}
+            </Label>
+            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
+            <Input
+              type="email"
+              value={formValues[name]?.value || ""}
+              onChange={(e) =>
+                handleValueChange(name, e.target.value, is_default)
+              }
+              placeholder="example@domain.com"
+            />
+          </div>
+        );
+
+      case "Phone":
+        return (
+          <div key={fieldKey} className="flex flex-col space-y-2">
+            <Label className="font-semibold">
+              {name} {is_required && <span className="text-destructive">*</span>}
+              {is_default && <span className="text-success">(Default)</span>}
+            </Label>
+            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
+            <div className="react-phone-input-container">
+              <PhoneInput
+                placeholder="Enter phone number"
+                value={formValues[name]?.value || ""}
+                onChange={(value: string | undefined) =>
+                  handlePhoneNumberChange(name, value || "")
+                }
+                defaultCountry="IN"
+                international
+                countrySelectProps={{
+                  value: selectedCountry,
+                  onChange: (value: string | undefined) =>
+                    setSelectedCountry(value || "India"),
+                  className: "flex-1 px-3 py-2 bg-secondary rounded",
+                }}
+                inputComponent={
+                  Input as React.ComponentType<
+                    React.InputHTMLAttributes<HTMLInputElement>
+                  >
+                }
+                required={is_required}
+              />
+            </div>
+            {!phoneNumberValidity[name] && (
+              <span className="text-destructive text-sm">
+                Please enter a valid phone number.
+              </span>
+            )}
+          </div>
+        );
+
+      case "Number":
+      case "Amount":
+        return (
+          <div key={fieldKey} className="flex flex-col space-y-2">
+            <Label className="font-semibold">
+              {name} {is_required && <span className="text-destructive">*</span>}
+              {is_default && <span className="text-success">(Default)</span>}
+            </Label>
+            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
+            <Input
+              type="number"
+              value={formValues[name]?.value || ""}
+              onChange={(e) =>
+                handleValueChange(
+                  name,
+                  parseFloat(e.target.value) || 0,
+                  is_default
+                )
+              }
+              placeholder={`Enter ${name.toLowerCase()}`}
+              min={field_type === "Amount" ? 0 : undefined}
+              step={field_type === "Amount" ? "0.01" : "1"}
+            />
+          </div>
+        );
+
+      case "Date":
+        return (
+          <div key={fieldKey} className="flex flex-col space-y-2">
+            <Label className="font-semibold">
+              {name} {is_required && <span className="text-destructive">*</span>}
+              {is_default && <span className="text-success">(Default)</span>}
+            </Label>
+            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
+            <Popover
+              open={datePickerStates[name]}
+              onOpenChange={(isOpen) => toggleDatePicker(name, isOpen)}
+            >
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal"
+                >
+                  <div className="flex items-center">
+                    <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
+                    {formValues[name]?.value ? (
+                      format(new Date(formValues[name].value), "PPP")
+                    ) : (
+                      <span className="text-muted-foreground">Select date...</span>
+                    )}
+                  </div>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={
+                    formValues[name]?.value
+                      ? new Date(formValues[name].value)
+                      : undefined
+                  }
+                  onSelect={(date) => {
+                    handleValueChange(name, date, is_default);
+                    toggleDatePicker(name, false);
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        );
+
+      case "Time":
+        return (
+          <div key={fieldKey} className="flex flex-col space-y-2">
+            <Label className="font-semibold">
+              {name} {is_required && <span className="text-destructive">*</span>}
+              {is_default && <span className="text-success">(Default)</span>}
+            </Label>
+            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
+            <div className="relative">
+              <Input
+                type="time"
+                value={formValues[name]?.value || ""}
+                onChange={(e) =>
+                  handleValueChange(name, e.target.value, is_default)
+                }
+              />
+              <Clock className="absolute right-3 top-2.5 h-5 w-5 text-muted-foreground" />
+            </div>
+          </div>
+        );
+
+      case "Image":
+      case "File":
+        const isFrontSide = name.toLowerCase().includes("front");
+        const isBackSide = name.toLowerCase().includes("back");
+        const label = isFrontSide
+          ? "Front Side"
+          : isBackSide
+            ? "Back Side"
+            : name;
+
+        return (
+          <div key={name}>
+            {is_default && (
+              <span className="text-xs text-primary">(default)</span>
+            )}
+            <FileUploadBox
+              preview={fileUploads[name]?.preview || null}
+              onFileChange={(file) =>
+                compressAndUploadFile(file, name, field_type)
+              }
+              onRemove={() => removeFile(name)}
+              label={label}
+              inputRef={(el) => (fileInputRefs.current[name] = el)}
+              uploadStatus={fileUploads[name]?.uploadStatus || "idle"}
+              fileError={fileUploads[name]?.fileError || null}
+              isRequired={is_required}
+              fieldType={field_type}
+            />
+          </div>
+        );
+
+      case "URL":
+        return (
+          <div key={fieldKey} className="flex flex-col space-y-2">
+            <Label className="font-semibold">
+              {name} {is_required && <span className="text-destructive">*</span>}
+              {is_default && <span className="text-success">(Default)</span>}
+            </Label>
+            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
+            <div className="relative">
+              <Input
+                type="url"
+                value={formValues[name]?.value || ""}
+                onChange={(e) =>
+                  handleValueChange(name, e.target.value, is_default)
+                }
+                placeholder="https://example.com"
+              />
+              <LinkIcon className="absolute right-3 top-2.5 h-5 w-5 text-muted-foreground" />
+            </div>
+          </div>
+        );
+
+      case "Checkbox":
+        return (
+          <div key={fieldKey} className="flex items-center space-x-2">
+            <Switch
+              id={name}
+              checked={formValues[name]?.value || false}
+              onCheckedChange={(checked) =>
+                handleValueChange(name, checked, is_default)
+              }
+            />
+            <Label htmlFor={name} className="font-semibold">
+              {name} {is_required && <span className="text-destructive">*</span>}
+              {is_default && <span className="text-success">(Default)</span>}
+            </Label>
+            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
+          </div>
+        );
+
+      case "Country":
+        const countryList = Object.values(countries).map((c) => ({
+          value: c.name.common,
+          label: c.name.common,
+          key: c.cca3,
+          region: c.region,
+        }));
+
+        return (
+          <div key={fieldKey} className="flex flex-col space-y-2">
+            <Label className="font-semibold">
+              {name} {is_required && <span className="text-destructive">*</span>}
+              {is_default && <span className="text-success">(Default)</span>}
+            </Label>
+            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
+            <Popover
+              open={isCountryDropdownOpen}
+              onOpenChange={setIsCountryDropdownOpen}
+            >
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="w-full justify-between"
+                >
+                  {selectedCountry || "Select Country..."}
+                  <ChevronsUpDown className="opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                className="w-[var(--radix-popover-trigger-width)] p-0"
+              >
+                <Command>
+                  <CommandInput
+                    placeholder="Search country..."
+                    className="h-9"
+                  />
+                  <CommandList>
+                    <CommandEmpty>No country found.</CommandEmpty>
+                    <CommandGroup>
+                      {countryList.map((c) => (
+                        <CommandItem
+                          key={c.key}
+                          onSelect={() => {
+                            setSelectedCountry(c.value);
+                            setSelectedRegion(c.region);
+                            setIsCountryDropdownOpen(false);
+                            handleValueChange(name, c.value, is_default);
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedCountry === c.value
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
+                          {c.label}({c.region})
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+        );
+
+      case "State":
+        const regionList = Array.from(
+          new Set(countries.map((c) => c.region).filter(Boolean))
+        );
+
+        return (
+          <div key={fieldKey} className="flex flex-col space-y-2">
+            <Label className="font-semibold">
+              {name} {is_required && <span className="text-destructive">*</span>}
+              {is_default && <span className="text-success">(Default)</span>}
+            </Label>
+            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
+            <Popover
+              open={isRegionDropdownOpen}
+              onOpenChange={setIsRegionDropdownOpen}
+            >
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="w-full justify-between"
+                >
+                  {selectedRegion || "Select State / Region..."}
+                  <ChevronsUpDown className="opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                className="w-[var(--radix-popover-trigger-width)] p-0"
+              >
+                <Command>
+                  <CommandInput
+                    placeholder="Search state / region..."
+                    className="h-9"
+                  />
+                  <CommandList>
+                    <CommandEmpty>No Region found.</CommandEmpty>
+                    <CommandGroup>
+                      {regionList.map((s) => (
+                        <CommandItem
+                          key={s}
+                          onSelect={() => {
+                            setSelectedRegion(s);
+                            setIsRegionDropdownOpen(false);
+                            handleValueChange(name, s, is_default);
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedRegion === s ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {s}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+        );
+
+      case "Dropdown":
+        if (name === "Document Type") {
+          const country = formValues["Document Issuing Country"]?.value || "";
+          const documentTypes = getDocumentTypes(country);
+
+          return (
+            <div key={fieldKey} className="flex flex-col space-y-2">
+              <Label className="font-semibold">
+                {name} {is_required && <span className="text-destructive">*</span>}
+                {is_default && (
+                  <span className="text-success">(Default)</span>
+                )}
+              </Label>
+              {help_text && (
+                <p className="text-xs text-muted-foreground">{help_text}</p>
+              )}
+              <Popover
+                open={dropdownStates[name]}
+                onOpenChange={(isOpen) => toggleDropdown(name, isOpen)}
+              >
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between"
+                    disabled={!country}
+                  >
+                    {formValues[name]?.value || "Select Document Type..."}
+                    <ChevronsUpDown className="opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  className="w-[var(--radix-popover-trigger-width)] p-0"
+                >
+                  <Command>
+                    <CommandInput
+                      placeholder="Search document type..."
+                      className="h-9"
+                    />
+                    <CommandList>
+                      <CommandEmpty>No document type found.</CommandEmpty>
+                      <CommandGroup>
+                        {documentTypes.map((type) => (
+                          <CommandItem
+                            key={type}
+                            onSelect={() => {
+                              handleValueChange(name, type, is_default);
+                              toggleDropdown(name, false);
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                formValues[name]?.value === type
+                                  ? "opacity-100"
+                                  : "opacity-0"
+                              )}
+                            />
+                            {type}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+          );
+        }
+
+        const options = context?.options || {};
+        const optionList = Object.keys(options).map((key) => ({
+          value: key,
+          label: options[key],
+        }));
+
+        return (
+          <div key={name} className="flex flex-col space-y-2">
+            <Label className="font-semibold">
+              {name} {is_required && <span className="text-destructive">*</span>}
+              {is_default && <span className="text-success">(Default)</span>}
+            </Label>
+            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
+            <Popover
+              open={dropdownStates[name]}
+              onOpenChange={(isOpen) => toggleDropdown(name, isOpen)}
+            >
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="w-full justify-between"
+                >
+                  {formValues[name]?.value || `Select ${name}...`}
+                  <ChevronsUpDown className="opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                className="w-[var(--radix-popover-trigger-width)] p-0"
+              >
+                <Command>
+                  <CommandInput
+                    placeholder={`Search ${name.toLowerCase()}...`}
+                    className="h-9"
+                  />
+                  <CommandList>
+                    <CommandEmpty>No option found.</CommandEmpty>
+                    <CommandGroup>
+                      {optionList.map((option) => (
+                        <CommandItem
+                          key={option.value}
+                          onSelect={() => {
+                            handleValueChange(name, option.label, is_default);
+                            toggleDropdown(name, false);
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              formValues[name]?.value === option.label
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
+                          {option.label}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+        );
+
+      case "Multi Select Dropdown":
+        const multiOptions = context?.options || {};
+        const multiOptionList = Object.keys(multiOptions).map((key) => ({
+          value: key,
+          label: multiOptions[key],
+        }));
+
+        return (
+          <div key={name} className="flex flex-col space-y-2">
+            <Label className="font-semibold">
+              {name} {is_required && <span className="text-destructive">*</span>}
+              {is_default && <span className="text-success">(Default)</span>}
+            </Label>
+            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
+            <Popover
+              open={dropdownStates[name]}
+              onOpenChange={(isOpen) => toggleDropdown(name, isOpen)}
+            >
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="w-full justify-between"
+                >
+                  {(formValues[name]?.value?.length || 0) > 0
+                    ? `${formValues[name].value.length} selected`
+                    : `Select ${name}...`}
+                  <ChevronsUpDown className="opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                className="w-[var(--radix-popover-trigger-width)] p-0"
+              >
+                <Command>
+                  <CommandInput
+                    placeholder={`Search ${name.toLowerCase()}...`}
+                    className="h-9"
+                  />
+                  <CommandList>
+                    <CommandEmpty>No option found.</CommandEmpty>
+                    <CommandGroup>
+                      {multiOptionList.map((option) => {
+                        const isSelected =
+                          formValues[name]?.value?.includes(option.label) ||
+                          false;
+                        return (
+                          <CommandItem
+                            key={option.value}
+                            onSelect={() => {
+                              const currentValues =
+                                formValues[name]?.value || [];
+                              const newValues = isSelected
+                                ? currentValues.filter(
+                                    (v: string) => v !== option.label
+                                  )
+                                : [...currentValues, option.label];
+                              handleValueChange(name, newValues, is_default);
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <div className="flex items-center">
+                              <div
+                                className={cn(
+                                  "mr-2 h-4 w-4 border rounded flex items-center justify-center",
+                                  isSelected
+                                    ? "bg-primary border-primary"
+                                    : "border-border"
+                                )}
+                              >
+                                {isSelected && (
+                                  <CheckCircle className="h-3 w-3 text-white" />
+                                )}
+                              </div>
+                              {option.label}
+                            </div>
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            {(formValues[name]?.value?.length || 0) > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {formValues[name].value.map((value: string) => (
+                  <div
+                    key={value}
+                    className="flex items-center bg-secondary px-2 py-1 rounded text-sm"
+                  >
+                    {value}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        const newValues = formValues[name].value.filter(
+                          (v: string) => v !== value
+                        );
+                        handleValueChange(name, newValues, is_default);
+                      }}
+                      className="ml-1 h-4 w-4"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const sortedAttributes = [...documentAttributes].sort(
+    (a, b) => a.position - b.position
+  );
 
   return (
     <div className="w-full px-6 mx-auto space-y-6">
-      {/* Rest of the component remains the same */}
-      {/* Country Dropdown */}
-      <div className="flex flex-col space-y-2">
-        <label className="text-sm font-semibold">Document Issuing Country *</label>
-        <Popover open={isCountryDropdownOpen} onOpenChange={setIsCountryDropdownOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              role="combobox"
-              className="w-full justify-between"
-            >
-              {country || "Select Country..."}
-              <ChevronsUpDown className="opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
-            <Command>
-              <CommandInput placeholder="Search country..." className="h-9" />
-              <CommandList>
-                <CommandEmpty>No country found.</CommandEmpty>
-                <CommandGroup>
-                  {countryList.map((c) => (
-                    <CommandItem
-                      key={c.key}
-                      onSelect={() => {
-                        setCountry(c.value);
-                        setIsCountryDropdownOpen(false); // Close the dropdown
-                      }}
-                      className="cursor-pointer"
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          country === c.value ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                      {c.label}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
-      </div>
-
-      {/* Document Type Dropdown */}
-      <div className="flex flex-col space-y-2">
-        <label className="text-sm font-semibold">Document Type *</label>
-        <Popover open={isDocumentDropdownOpen} onOpenChange={setIsDocumentDropdownOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              role="combobox"
-              className="w-full justify-between"
-            >
-              {documentType || "Select Document Type..."}
-              <ChevronsUpDown className="opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
-            <Command>
-              <CommandInput placeholder="Search document type..." className="h-9" />
-              <CommandList>
-                <CommandEmpty>No document type found.</CommandEmpty>
-                <CommandGroup>
-                  {(country === "India"
-                    ? indiaDocumentTypes
-                    : otherDocumentTypes
-                  ).map((type) => (
-                    <CommandItem
-                      key={type}
-                      onSelect={() => {
-                        setDocumentType(type);
-                        setIsDocumentDropdownOpen(false); // Close the dropdown
-                      }}
-                      className="cursor-pointer"
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          documentType === type ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                      {type}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
-      </div>
-
-      {/* Front Image Upload */}
-      <ImageUploadBox
-        preview={frontPreview}
-        onFileChange={(file) => handleImageUpload(file, true)}
-        onRemove={() => removeImage(true)}
-        label="Front Side"
-        inputRef={frontInputRef}
-        uploadStatus={frontUploadStatus}
-        fileError={frontFileError}
+      <DocumentValidation
+        documentAttributes={documentAttributes}
+        formValues={Object.fromEntries(
+          Object.entries(formValues).map(([k, v]) => [k, v.value])
+        )}
+        fileUploads={fileUploads}
+        phoneNumberValidity={phoneNumberValidity}
+        onValidationChange={onValidationChange}
       />
-
-      {/* Back Image Upload */}
-      <ImageUploadBox
-        preview={backPreview}
-        onFileChange={(file) => handleImageUpload(file, false)}
-        onRemove={() => removeImage(false)}
-        label="Back Side"
-        inputRef={backInputRef}
-        uploadStatus={backUploadStatus}
-        fileError={backFileError}
-      />
-
+      {sortedAttributes.map(renderField)}
     </div>
   );
 };
 
-export default DocumentUploadForm;
+export default DynamicDocumentUploadForm;

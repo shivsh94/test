@@ -17,7 +17,8 @@ const Footer: FC = () => {
   useEffect(() => {
     if (
       currentPath.includes("/requests") ||
-      currentPath.includes("/place-request")
+      currentPath.includes("/place-request") ||
+      currentPath.includes("/check-in") 
     ) {
       setIsShown(false);
     } else {
@@ -25,7 +26,6 @@ const Footer: FC = () => {
     }
   }, [currentPath]);
 
-  // Get base path like /project1-in
   const basePath = currentPath.split("/")[1];
   const prefix = `/${basePath}`;
 

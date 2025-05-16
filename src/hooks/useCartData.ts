@@ -82,7 +82,6 @@ export const useAddToCart = () => {
       );
     },
     onMutate: async (variables) => {
-      // Optimistic update logic
       const existingItem = cartItems.find(
         item => item.item_id === variables.item_id && 
                item.sub_item_id === variables.sub_item_id

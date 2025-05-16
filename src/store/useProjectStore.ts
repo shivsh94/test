@@ -75,6 +75,7 @@ export type NearbyPlacesResponse = {
 
 // Notice Api 
 export interface Item {
+  category_id: string;
   id: string;
   name: string;
   description: string;

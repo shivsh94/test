@@ -1,8 +1,8 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
-import MealAddons from "@/components/cart/MealAddons";
-import Savings from "@/components/cart/Savings";
+// import MealAddons from "@/components/cart/MealAddons";
+// import Savings from "@/components/cart/Savings";
 import useCartStore from "@/store/useCartStore";
 import { useMenuStore } from "@/store/useProjectStore";
 import { useEffect } from "react";
@@ -145,8 +145,8 @@ export default function CartPage() {
             );
           })}
 
-          <MealAddons />
-          <Savings />
+          {/* <MealAddons /> */}
+          {/* <Savings /> */}
         </div>
       )}
     </div>

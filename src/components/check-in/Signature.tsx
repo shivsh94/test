@@ -16,7 +16,6 @@ const SignatureComponent: React.FC<SignatureProps> = ({ onValidationChange }) =>
       const signaturePad = new SignaturePad(canvasRef.current);
       signaturePadRef.current = signaturePad;
 
-      // Add event listener for when signature begins
       signaturePad.addEventListener("beginStroke", () => {
         onValidationChange(true);
       });
@@ -47,7 +46,7 @@ const SignatureComponent: React.FC<SignatureProps> = ({ onValidationChange }) =>
   };
 
   return (
-    <div className="flex flex-col items-center justify-center w-full px-6">
+    <div className="flex flex-col items-center justify-center w-full ">
       <h1 className="mb-2">Sign Below</h1>
       <div className="w-full border border-gray-300 rounded-md shadow-sm">
         <canvas

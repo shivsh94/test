@@ -5,6 +5,8 @@ import { useSlugStore } from "@/store/useProjectStore";
 import useCartStore from "@/store/useCartStore";
 import { useMenuStore } from "@/store/useProjectStore";
 import { toast } from "sonner";
+import { createOrder, verifyRazorpayPayment } from "@/lib/createOrderApi";
+// import { createOrder, verifyRazorpayPayment } from "@/services/orderService";
 
 interface RazorpayResponse {
   razorpay_payment_id: string;
@@ -41,12 +43,23 @@ declare global {
     };
   }
 }
+const getLocalStorageItem = (key: string) => {
+  if (typeof window === "undefined") return null;
+  try {
+    return JSON.parse(localStorage.getItem(key) || "null");
+  } catch (error) {
+    console.log("Error parsing localStorage item:", error);
+    return localStorage.getItem(key);
+  }
+};
 
 function Footer() {
   const [loading, setLoading] = React.useState(false);
-  const { cartItems } = useCartStore();
+  const { cartItems, clearCart } = useCartStore();
   const { menuItems = [] } = useMenuStore();
   const slug = useSlugStore((state) => state.data);
+  const formSubmissionResponse = getLocalStorageItem("formSubmissionResponse");
+  const customerId = formSubmissionResponse?.id;
 
   const { totalItems, totalBill } = React.useMemo(() => {
     let itemsCount = 0;
@@ -65,81 +78,136 @@ function Footer() {
     return { totalItems: itemsCount, totalBill: billTotal };
   }, [cartItems, menuItems]);
 
+  const handlePaymentSuccess = async (orderId: string, paymentMethod: 'online' | 'pay_later') => {
+    try {
+      toast.success(`Order ${paymentMethod === 'online' ? 'and payment' : ''} successful!`);
+      clearCart();
+      // You might want to redirect to order confirmation page here
+    } catch (error) {
+      console.error("Order success handling failed:", error);
+      toast.error("Order completion failed");
+    }
+  };
+
+  const verifyPayment = async (
+    entityId: string,
+    orderId: string,
+    razorpayResponse: RazorpayResponse,
+    category: string = "Food & Beverage" // Default category
+  ) => {
+    try {
+      const verification = await verifyRazorpayPayment(
+        entityId,
+        orderId,
+        razorpayResponse.razorpay_payment_id,
+        razorpayResponse.razorpay_signature,
+        category,
+        razorpayResponse.razorpay_order_id
+      );
+      
+      return verification;
+    } catch (error) {
+      console.error("Payment verification failed:", error);
+      throw error;
+    }
+  };
+
   const handlePayNow = async () => {
     if (totalItems === 0) {
       toast.warning("Your cart is empty");
       return;
     }
 
-    if (!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID) {
-      toast.error("Razorpay Key ID is not set");
-      return;
-    }
-
     setLoading(true);
 
     try {
-      // TODO: Replace this block with actual order creation API
-      // const orderResponse = await fetch("/api/create-razorpay-order", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ amount: totalBill * 100 }), // in paisa
-      // });
-      // const orderData = await orderResponse.json();
-      // const orderId = orderData.id;
+      // Create order in your system and get Razorpay payment data
+      const orderResponse = await createOrder(
+        slug?.id || '',
+        false, // pay_later = false for Pay Now
+        customerId, // customer_id (replace with actual customer ID if available)
+        '', // remark
+        '' // location
+      );
 
-      const orderId = "order_9A33XWu170gUtm"; // Temporary hardcoded
+      if (!orderResponse.payment_data) {
+        throw new Error("Payment data not received from server");
+      }
+
+      const paymentData = orderResponse.payment_data;
 
       const options: RazorpayOptions = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: totalBill * 100, // in paisa
-        currency: "INR",
-        name: "Acme Corp",
-        description: "Test Transaction",
-        image: "https://example.com/your_logo",
-        order_id: orderId,
+        key: paymentData.key,
+        amount: paymentData.amount,
+        currency: paymentData.currency,
+        name: paymentData.name || slug?.company?.name || "Order Payment",
+        description: paymentData.description || "Complete your payment",
+        image: paymentData.logo || slug?.company?.logo || "",
+        order_id: paymentData.order_id,
         handler: async function (response: RazorpayResponse) {
           try {
-            const verification = await fetch("/api/verify-payment", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(response),
-            });
+            // Verify payment with our backend
+            const verification = await verifyPayment(
+              slug?.id || '',
+              orderResponse.id,
+              response,
+              "Food & Beverage" // Or get category from slug/store
+            );
 
-            const verificationData = await verification.json();
-            if (verificationData.success) {
-              toast.success("Payment successful!");
-              // Do something like redirect or clear cart
+            if (verification?.success) {
+              await handlePaymentSuccess(orderResponse.id, 'online');
             } else {
               toast.error("Payment verification failed");
             }
           } catch (err) {
-            console.error("Verification failed", err);
+            console.error("Payment verification failed", err);
             toast.error("Payment verification error");
           }
         },
         prefill: {
-          name: "Customer Name",
-          email: "customer@example.com",
-          contact: "9999999999",
+          name: "Guest User", // Replace with actual customer name if available
+          email: "guest@example.com", // Replace with actual customer email if available
+          contact: "0000000000", // Replace with actual customer phone if available
         },
         notes: {
-          orderNote: "Additional order details",
+          order_id: orderResponse.id,
         },
         theme: {
-          color: slug?.company?.primary_color || "#3399cc",
+          color: paymentData.color || slug?.company?.primary_color || "#3399cc",
         },
-        callback_url: `${window.location.origin}/payment/callback`,
-        redirect: true,
+        callback_url: paymentData.callback_url,
+        redirect: false,
       };
 
       const rzp = new window.Razorpay(options);
       rzp.open();
     } catch (error) {
       console.error("Payment error:", error);
-      toast.error("Payment failed");
+      toast.error("Payment initialization failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePayLater = async () => {
+    if (totalItems === 0) {
+      toast.warning("Your cart is empty");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const orderResponse = await createOrder(
+        slug?.id || '',
+        true, // pay_later = true for Pay Later
+        customerId, // customer_id (replace with actual customer ID if available)
+        '', // remark
+        '' // location
+      );
+      await handlePaymentSuccess(orderResponse.id, 'pay_later');
+    } catch (error) {
+      console.error("Pay Later error:", error);
+      toast.error("Pay Later failed");
     } finally {
       setLoading(false);
     }
@@ -174,7 +242,7 @@ function Footer() {
                 cursor:
                   totalItems === 0 || loading ? "not-allowed" : "pointer",
               }}
-              onClick={handlePayNow}
+              onClick={handlePayLater}
               disabled={totalItems === 0 || loading}
             >
               {loading ? "Processing..." : "Pay Later"}

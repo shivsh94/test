@@ -48,7 +48,6 @@ interface MergedCardProps {
 
 const InfoCard = React.memo(
   ({
-
     title,
     icon,
     type,
@@ -67,9 +66,7 @@ const InfoCard = React.memo(
       } else if (type === "popup") {
         setOpen(true);
       } else if (type === "navigate" && url) {
-        router.replace(
-          `${window.location.href}/${url}`
-        )
+        router.replace(`${window.location.href}/${url}`);
       }
     }, [type, url, router]);
 
@@ -169,7 +166,10 @@ const InfoCards: React.FC = () => {
     ];
 
     const dynamicCards = Array.isArray(items) ? items : [];
-    const allCards: Omit<MergedCardProps, "secondaryColor" | "primaryTextColor">[] = [];
+    const allCards: Omit<
+      MergedCardProps,
+      "secondaryColor" | "primaryTextColor"
+    >[] = [];
 
     if (locationUrl) {
       allCards.push({

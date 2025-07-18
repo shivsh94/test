@@ -1,8 +1,9 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 
-type FieldType = 
+type FieldType =
   | "Text"
   | "Long Text"
+  | "Sign"
   | "Email"
   | "Phone"
   | "Number"
@@ -18,10 +19,13 @@ type FieldType =
   | "Dropdown"
   | "Multi Select Dropdown";
 
-type FieldFor = "Both Domestic & International Customer" | "Domestic Customer" | "International Customer";
+type FieldFor =
+  | "Both Domestic & International Customer"
+  | "Domestic Customer"
+  | "International Customer";
 type ShowOnScreen = "Detail" | "Document";
 
-export interface FieldContext {
+interface FieldContext {
   options?: Record<string, string>;
   min_length?: number;
   max_length?: number;
@@ -32,6 +36,7 @@ export interface FieldContext {
 export interface CheckinAttribute {
   required: boolean;
   name: string;
+  label: string;
   section: string;
   field_type: FieldType;
   field_for: FieldFor;
@@ -47,12 +52,12 @@ export interface CheckinAttribute {
   is_default: boolean;
 }
 
-export interface CheckinResponse {
+interface CheckinResponse {
   items: CheckinAttribute[];
   count: number;
 }
 
-export interface CheckinStore {
+interface CheckinStore {
   checkinAttributes: CheckinAttribute[];
   count: number;
   setCheckinData: (response: CheckinResponse) => void;
@@ -62,10 +67,11 @@ export interface CheckinStore {
 const useCheckinStore = create<CheckinStore>((set) => ({
   checkinAttributes: [],
   count: 0,
-  setCheckinData: (response) => set({ 
-    checkinAttributes: response.items, 
-    count: response.count 
-  }),
+  setCheckinData: (response) =>
+    set({
+      checkinAttributes: response.items,
+      count: response.count,
+    }),
   clearCheckinData: () => set({ checkinAttributes: [], count: 0 }),
 }));
 

@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import dns from "dns/promises";
+import { NextResponse } from "next/server";
 
 interface DnsErrorWithCode extends Error {
   code?: string;
@@ -24,17 +24,17 @@ export async function POST(request: Request) {
       // Additional DNS checks
       const [mxRecords, addresses] = await Promise.all([
         dns.resolveMx(domain).catch(() => []), // Catch MX record errors
-        dns.resolve(domain).catch(() => [])    // Additional domain resolution
+        dns.resolve(domain).catch(() => []), // Additional domain resolution
       ]);
 
       // More comprehensive validation
       if (mxRecords.length > 0 || addresses.length > 0) {
-        return NextResponse.json({ 
-          valid: true, 
+        return NextResponse.json({
+          valid: true,
           details: {
             mxRecords: mxRecords.length,
-            resolvedAddresses: addresses.length
-          }
+            resolvedAddresses: addresses.length,
+          },
         });
       } else {
         return NextResponse.json({
@@ -43,8 +43,8 @@ export async function POST(request: Request) {
           details: {
             domain: domain,
             mxRecordsFound: mxRecords.length,
-            addressesResolved: addresses.length
-          }
+            addressesResolved: addresses.length,
+          },
         });
       }
     } catch (dnsError: unknown) {
@@ -54,12 +54,12 @@ export async function POST(request: Request) {
           domain,
           errorName: dnsError.name,
           errorCode: errorWithCode.code,
-          errorMessage: dnsError.message
+          errorMessage: dnsError.message,
         });
       } else {
         console.error("Comprehensive DNS lookup failed with unknown error:", {
           domain,
-          errorType: 'UNKNOWN_ERROR'
+          errorType: "UNKNOWN_ERROR",
         });
       }
 
@@ -68,10 +68,11 @@ export async function POST(request: Request) {
         error: "DNS resolution failed",
         details: {
           domain,
-          errorType: dnsError instanceof Error && 'code' in dnsError 
-            ? (dnsError as DnsErrorWithCode).code 
-            : 'UNKNOWN_DNS_ERROR'
-        }
+          errorType:
+            dnsError instanceof Error && "code" in dnsError
+              ? (dnsError as DnsErrorWithCode).code
+              : "UNKNOWN_DNS_ERROR",
+        },
       });
     }
   } catch (error) {
@@ -95,7 +96,7 @@ function isValidEmail(email: string): boolean {
 
   // Ensure the domain has at least one dot
   const domainParts = parts[1].split(".");
-  if (domainParts.length < 2 || domainParts.some(part => !part)) {
+  if (domainParts.length < 2 || domainParts.some((part) => !part)) {
     return false;
   }
 

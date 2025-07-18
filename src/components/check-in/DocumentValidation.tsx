@@ -1,8 +1,32 @@
+// DocumentValidation.tsx
 import React, { useEffect } from "react";
-import { CheckinAttribute } from "@/store/useCheck-inStore";
+
+import { Show } from "./attributeConditions";
+
+interface AttributeType {
+  required: boolean;
+  name: string;
+  label: string;
+  section: string;
+  field_type: any;
+  field_for: any;
+  help_text: string;
+  position: number;
+  is_required: boolean;
+  is_disabled: boolean;
+  show_on_list_view?: boolean;
+  context: any;
+  id?: string;
+  entity_id?: string;
+  is_default: boolean;
+  created_at?: string;
+  created_by_id?: string;
+  updated_at?: string;
+  updated_by_id?: string;
+}
 
 interface DocumentValidationProps {
-  documentAttributes: CheckinAttribute[];
+  documentAttributes: AttributeType[];
   formValues: Record<string, any>;
   fileUploads: Record<
     string,
@@ -24,34 +48,73 @@ const DocumentValidation: React.FC<DocumentValidationProps> = ({
   phoneNumberValidity,
   onValidationChange,
 }) => {
-  console.log(formValues);
-  
   useEffect(() => {
     const requiredFields = documentAttributes.filter(
-      (attr) => attr.is_required
+      (attr) =>
+        attr.is_required && Show({ attribute: attr, formValues: formValues })
     );
 
     const isValid = requiredFields.every((field) => {
+      let fieldValue;
+      if (
+        typeof formValues[field.name] === "object" &&
+        formValues[field.name] !== null &&
+        "value" in formValues[field.name]
+      ) {
+        fieldValue = formValues[field.name].value;
+      } else {
+        fieldValue = formValues[field.name];
+      }
+
+      if (field.field_type === "Sign") {
+        return !!fieldValue && fieldValue !== "";
+      }
+
+      // console.log(`Field '${field.name}' value:`, fieldValue);
+
       if (field.field_type === "Image" || field.field_type === "File") {
-        return (
-          fileUploads[field.name]?.file !== null &&
-          fileUploads[field.name]?.uploadStatus === "success"
-        );
+        return fileUploads[field.name]?.uploadStatus === "success";
       }
+
       if (field.field_type === "Checkbox") {
-        return formValues[field.name].value === true;
+        return fieldValue === true;
       }
+
       if (field.field_type === "Multi Select Dropdown") {
-        return formValues[field.name]?.length > 0;
+        return Array.isArray(fieldValue) && fieldValue.length > 0;
       }
+
       if (field.field_type === "Phone") {
-        return phoneNumberValidity[field.name] !== false;
+        if (field.field_type === "Phone") {
+          const isPhoneValid = phoneNumberValidity[field.name] !== false;
+          if (!isPhoneValid) return false;
+        }
+        if (typeof fieldValue === "string") {
+          return fieldValue.trim() !== "";
+        } else {
+          return !!fieldValue;
+        }
       }
-      return !!formValues[field.name];
+      if (typeof fieldValue === "string") {
+        return fieldValue.trim() !== "";
+      } else if (typeof fieldValue === "number") {
+        return true;
+      } else if (fieldValue === null || fieldValue === undefined) {
+        return false;
+      } else {
+        return true;
+      }
     });
 
+    // console.log("Form validation result:", isValid);
     onValidationChange(isValid);
-  }, [formValues, fileUploads, phoneNumberValidity, documentAttributes]);
+  }, [
+    formValues,
+    fileUploads,
+    phoneNumberValidity,
+    documentAttributes,
+    onValidationChange,
+  ]);
 
   return null;
 };

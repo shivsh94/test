@@ -61,3 +61,30 @@ body {
 .custom-scrollbar::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
 }
+iframe {
+  border-radius: 10px;
+  width: 100%;
+  height: 250px;
+}
+.grecaptcha-badge {
+  display: none !important;
+}
+
+[data-state="open"],
+[data-state="closed"] {
+  animation: none !important;
+}
+
+:root {
+  --sonner-toast-position: top-1/2 left-1/2 translate-x-[-50%]
+    translate-y-[-50%];
+}
+
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}

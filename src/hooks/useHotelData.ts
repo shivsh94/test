@@ -9,14 +9,13 @@ import {
   menuList,
   nearByPlaces,
 } from "@/lib/HotelApis";
-
 import {
-  useSlugStore,
-  useIdStore,
-  useNearbyStore,
   useCategoryStore,
-  useMenuStore,
+  useIdStore,
   useLabelStore,
+  useMenuStore,
+  useNearbyStore,
+  useSlugStore,
 } from "@/store/useProjectStore";
 
 export const useHotelData = (slug: string) => {
@@ -26,8 +25,6 @@ export const useHotelData = (slug: string) => {
   const setCategories = useCategoryStore((state) => state.setCategories);
   const setMenuItems = useMenuStore((state) => state.setMenuItems);
   const { setLabelItems } = useLabelStore();
-  
-
 
   const dataUpdatedRef = useRef(false);
 
@@ -81,7 +78,6 @@ export const useHotelData = (slug: string) => {
   useEffect(() => {
     if (hotel && !dataUpdatedRef.current) {
       setData(hotel);
-      // console.log("Hotel data updated in store", hotel);
       dataUpdatedRef.current = true;
     }
   }, [hotel, setData]);
@@ -89,36 +85,30 @@ export const useHotelData = (slug: string) => {
   useEffect(() => {
     if (hotelById) {
       setIdData(hotelById);
-      // console.log("Hotel by ID data updated in store", hotelById);
     }
   }, [hotelById, setIdData]);
 
   useEffect(() => {
     if (nearbyPlacesResponse) {
       setNearbyPlaces(nearbyPlacesResponse);
-      // console.log("Nearby places data updated in store", nearbyPlacesResponse);
     }
   }, [nearbyPlacesResponse, setNearbyPlaces]);
 
   useEffect(() => {
     if (categories) {
       setCategories(categories);
-      // console.log("Categories list data updated in store", categories);
     }
   }, [categories, setCategories]);
 
   useEffect(() => {
     if (menuItems) {
       setMenuItems(menuItems);
-      // console.log("Menu list data updated in store", menuItems);
     }
   }, [menuItems, setMenuItems]);
-
 
   useEffect(() => {
     if (label) {
       setLabelItems(label);
-      // console.log("Label data updated in store", label);
     }
   }, [label, setLabelItems]);
 

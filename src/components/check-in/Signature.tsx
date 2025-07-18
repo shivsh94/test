@@ -1,36 +1,79 @@
-import React, { useRef } from "react";
+import { Eraser, Undo } from "lucide-react";
+import React, { useEffect, useRef } from "react";
 import SignaturePad from "signature_pad";
-import { Button } from "@/components/ui/button";
-import { Undo, Eraser } from "lucide-react";
 
-interface SignatureProps {
+import { Button } from "@/components/ui/button";
+
+interface SignatureComponentProps {
+  fieldName: string;
+  defaultValue?: string;
   onValidationChange: (isValid: boolean) => void;
+  onSignatureChange: (dataUrl: string) => void;
 }
 
-const SignatureComponent: React.FC<SignatureProps> = ({ onValidationChange }) => {
+const SignatureComponent: React.FC<SignatureComponentProps> = ({
+  fieldName,
+  defaultValue,
+  onValidationChange,
+  onSignatureChange,
+}) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const signaturePadRef = useRef<SignaturePad | null>(null);
 
-  React.useEffect(() => {
+  // Initialize signature pad
+  useEffect(() => {
     if (canvasRef.current) {
-      const signaturePad = new SignaturePad(canvasRef.current);
+      const canvas = canvasRef.current;
+      const signaturePad = new SignaturePad(canvas, {
+        backgroundColor: "rgb(255, 255, 255)",
+        penColor: "rgb(0, 0, 0)",
+      });
       signaturePadRef.current = signaturePad;
+
+      if (defaultValue) {
+        signaturePad.fromDataURL(defaultValue);
+        onValidationChange(!signaturePad.isEmpty());
+      }
+
+      const handleResize = () => {
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        canvas.width = canvas.offsetWidth * ratio;
+        canvas.height = canvas.offsetHeight * ratio;
+        canvas.getContext("2d")?.scale(ratio, ratio);
+        signaturePad.clear();
+        if (defaultValue) {
+          signaturePad.fromDataURL(defaultValue);
+        }
+      };
+
+      window.addEventListener("resize", handleResize);
+      handleResize();
 
       signaturePad.addEventListener("beginStroke", () => {
         onValidationChange(true);
       });
-    }
 
-    return () => {
-      signaturePadRef.current?.off();
-      signaturePadRef.current = null;
-    };
-  }, []);
+      signaturePad.addEventListener("endStroke", () => {
+        if (signaturePad.isEmpty()) {
+          onValidationChange(false);
+          onSignatureChange("");
+        } else {
+          onSignatureChange(signaturePad.toDataURL("image/png"));
+        }
+      });
+
+      return () => {
+        window.removeEventListener("resize", handleResize);
+        signaturePad.off();
+      };
+    }
+  }, [fieldName, defaultValue]);
 
   const clearSignature = () => {
     if (signaturePadRef.current) {
       signaturePadRef.current.clear();
       onValidationChange(false);
+      onSignatureChange("");
     }
   };
 
@@ -38,34 +81,45 @@ const SignatureComponent: React.FC<SignatureProps> = ({ onValidationChange }) =>
     if (signaturePadRef.current) {
       const data = signaturePadRef.current.toData();
       if (data.length > 0) {
-        data.pop(); // Remove the last stroke
-        signaturePadRef.current.fromData(data); // Re-draw the remaining strokes
+        data.pop();
+        signaturePadRef.current.fromData(data);
         onValidationChange(data.length > 0);
+        if (data.length === 0) {
+          onSignatureChange("");
+        } else {
+          onSignatureChange(signaturePadRef.current.toDataURL("image/png"));
+        }
       }
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center w-full ">
-      <h1 className="mb-2">Sign Below</h1>
-      <div className="w-full border border-gray-300 rounded-md shadow-sm">
+    <div className="flex flex-col items-center justify-center w-full">
+      <div className="w-full border border-gray-300 rounded-md shadow-sm bg-white">
         <canvas
           ref={canvasRef}
-          className="w-full"
-          style={{ height: '200px' }}
-        ></canvas>
+          className="w-full touch-none"
+          style={{ height: "200px", touchAction: "none" }}
+          data-field={fieldName}
+        />
       </div>
-      <div className="flex items-center justify-between w-full mt-4">
-        <div className="flex items-center">
-          <Button variant="default" onClick={clearSignature}>
-            <Eraser className="w-4 h-4" /> Clear
-          </Button>
-        </div>
-        <div className="flex items-center">
-          <Button variant="destructive" onClick={undoSignature}>
-            <Undo className="w-4 h-4" /> Undo
-          </Button>
-        </div>
+      <div className="flex items-center justify-between w-full mt-2 space-x-2">
+        <Button
+          variant="outline"
+          onClick={clearSignature}
+          className="flex items-center gap-2"
+          type="button"
+        >
+          <Eraser className="w-4 h-4" /> Clear
+        </Button>
+        <Button
+          variant="outline"
+          onClick={undoSignature}
+          className="flex items-center gap-2"
+          type="button"
+        >
+          <Undo className="w-4 h-4" /> Undo
+        </Button>
       </div>
     </div>
   );

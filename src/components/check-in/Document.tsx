@@ -1,92 +1,172 @@
-import React, { useRef, useEffect } from "react";
+import "react-phone-number-input/style.css";
+
+import { format } from "date-fns";
 import {
-  Check,
-  ChevronsUpDown,
-  X,
-  ImagePlus,
   AlertTriangle,
-  Calendar as CalendarIcon,
-  Clock,
-  Link as LinkIcon,
-  FileText,
-  File,
+  Check,
   CheckCircle,
+  ChevronDown,
+  ChevronsUpDown,
+  Clock,
+  File,
+  FileText,
+  ImagePlus,
+  Link as LinkIcon,
+  X,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import Image from "next/image";
+import React, { useEffect, useMemo, useRef } from "react";
+import PhoneInput from "react-phone-number-input";
+import countries from "world-countries";
+import { StoreApi, useStore } from "zustand";
+
+import { Options, Show } from "@/components/check-in/attributeConditions";
+import InfoTooltip from "@/components/InfoToolTip";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Command,
   CommandEmpty,
   CommandGroup,
+  CommandInput,
   CommandItem,
   CommandList,
-  CommandInput,
 } from "@/components/ui/command";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
-import countries from "world-countries";
-import Image from "next/image";
-import useCheckinStore, { CheckinAttribute } from "@/store/useCheck-inStore";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import PhoneInput from "react-phone-number-input";
-import "react-phone-number-input/style.css";
-import { uploadFile } from "../../lib/uploadFile";
-import DocumentValidation from "./DocumentValidation";
+import { Textarea } from "@/components/ui/textarea";
+import { uploadFile } from "@/lib/uploadFile";
+import { cn } from "@/lib/utils";
+import { BaseFormState } from "@/store/formStoreFactory";
 import { useDocumentFormStore } from "@/store/useDocumentFormStore";
+
+import DocumentValidation from "./DocumentValidation";
+import SignatureComponent from "./Signature";
+
+interface AttributeType {
+  required: boolean;
+  name: string;
+  label: string;
+  section: string;
+  field_type: any;
+  field_for: any;
+  help_text: string;
+  position: number;
+  is_required: boolean;
+  is_disabled: boolean;
+  show_on_list_view?: boolean;
+  context: any;
+  id?: string;
+  entity_id?: string;
+  is_default: boolean;
+  created_at?: string;
+  created_by_id?: string;
+  updated_at?: string;
+  updated_by_id?: string;
+}
 
 interface DocumentUploadFormProps {
   onValidationChange: (isValid: boolean) => void;
+  attributes: AttributeType[];
+  store?: StoreApi<BaseFormState>;
 }
 
 const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
   onValidationChange,
+  attributes,
+  store,
 }) => {
-  const { checkinAttributes } = useCheckinStore();
-  const documentAttributes = React.useMemo(
-    () =>
-      checkinAttributes.filter((attr) => attr.show_on_screen === "Document"),
-    [checkinAttributes]
+  const documentAttributes = React.useMemo(() => {
+    return attributes;
+  }, [attributes]);
+
+  const formStore = store! ?? useDocumentFormStore();
+
+  const formValues = useStore(formStore, (s) => s.formValues);
+  const fileUploads = useStore(formStore, (s) => s.fileUploads);
+  const phoneNumberValidity = useStore(formStore, (s) => s.phoneNumberValidity);
+  const dropdownStates = useStore(formStore, (s) => s.dropdownStates);
+  const selectedCountry = useStore(formStore, (s) => s.selectedCountry);
+  const selectedRegion = useStore(formStore, (s) => s.selectedRegion);
+  const isCountryDropdownOpen = useStore(
+    formStore,
+    (s) => s.isCountryDropdownOpen
+  );
+  const isRegionDropdownOpen = useStore(
+    formStore,
+    (s) => s.isRegionDropdownOpen
   );
 
-  const {
-    formValues,
-    fileUploads,
-    phoneNumberValidity,
-    dropdownStates,
-    datePickerStates,
-    selectedCountry,
-    selectedRegion,
-    isCountryDropdownOpen,
-    isRegionDropdownOpen,
-    initializeForm,
-    handleValueChange,
-    handlePhoneNumberChange,
-    // handleFileUpload,
-    removeFile,
-    toggleDropdown,
-    toggleDatePicker,
-    setSelectedCountry,
-    setSelectedRegion,
-    setIsCountryDropdownOpen,
-    setIsRegionDropdownOpen,
-  } = useDocumentFormStore();
+  const initializeForm = useStore(formStore, (s) => s.initializeForm);
+  const handleValueChange = useStore(formStore, (s) => s.handleValueChange);
+  const handlePhoneNumberChange = useStore(
+    formStore,
+    (s) => s.handlePhoneNumberChange
+  );
+  const removeFile = useStore(formStore, (s) => s.removeFile);
+  const toggleDropdown = useStore(formStore, (s) => s.toggleDropdown);
+  const setSelectedCountry = useStore(formStore, (s) => s.setSelectedCountry);
+  const setSelectedRegion = useStore(formStore, (s) => s.setSelectedRegion);
+  const setIsCountryDropdownOpen = useStore(
+    formStore,
+    (s) => s.setIsCountryDropdownOpen
+  );
+  const setIsRegionDropdownOpen = useStore(
+    formStore,
+    (s) => s.setIsRegionDropdownOpen
+  );
 
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
-    if (documentAttributes.length > 0) {
+    if (documentAttributes.length > 0 && Object.keys(formValues).length === 0) {
       initializeForm(documentAttributes);
     }
-  }, [documentAttributes, initializeForm]);
+  }, [documentAttributes, initializeForm, formValues]);
+
+  useEffect(() => {
+    return () => {
+      const currentFileUploads = formStore.getState().fileUploads;
+      Object.values(currentFileUploads).forEach((upload) => {
+        if (upload.preview && upload.preview.startsWith("blob:")) {
+          URL.revokeObjectURL(upload.preview);
+        }
+      });
+    };
+  }, [formStore]);
+
+  const sortedAttributes = useMemo(() => {
+    return [...documentAttributes].sort((a, b) => a.position - b.position);
+  }, [documentAttributes]);
+
+  const groupedAttributes = useMemo(() => {
+    const groups: Record<string, AttributeType[]> = {};
+
+    sortedAttributes.forEach((attr) => {
+      if (!groups[attr.section]) {
+        groups[attr.section] = [];
+      }
+      groups[attr.section].push(attr);
+    });
+
+    return groups;
+  }, [sortedAttributes]);
+
+  const sectionOrder = useMemo(() => {
+    const order: string[] = [];
+    sortedAttributes.forEach((attr) => {
+      if (!order.includes(attr.section)) {
+        order.push(attr.section);
+      }
+    });
+    return order;
+  }, [sortedAttributes]);
 
   const validateFile = (file: File, fieldType: "Image" | "File"): boolean => {
     const allowedImageTypes = ["image/jpeg", "image/png", "image/jpg"];
@@ -96,6 +176,10 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ];
     const MAX_SIZE_MB = 10;
+
+    if (!file || !file.name) {
+      return false;
+    }
 
     if (fieldType === "Image" && !allowedImageTypes.includes(file.type)) {
       return false;
@@ -109,14 +193,44 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
       return false;
     }
 
+    if (file.size < 100) {
+      return false;
+    }
+
     return true;
   };
 
+  const handleUploadAndState = async (
+    file: File,
+    fieldName: string,
+    fieldType: "Image" | "File"
+  ) => {
+    try {
+      const currentRef = fileInputRefs.current[fieldName];
+      const result = await uploadFile(file, fieldName, fieldType, {
+        current: { [fieldName]: currentRef },
+      });
+
+      // Use the new completeFileUpload method
+      formStore.getState().completeFileUpload(fieldName, true, result.url);
+    } catch (error) {
+      formStore
+        .getState()
+        .completeFileUpload(fieldName, false, undefined, "Upload failed");
+    }
+  };
   const compressAndUploadFile = async (
     file: File,
     fieldName: string,
     fieldType: "Image" | "File"
   ) => {
+    // Check if this field is already uploading to prevent duplicate uploads
+    const currentState = formStore.getState();
+    if (currentState.fileUploads[fieldName]?.uploadStatus === "uploading") {
+      console.log(`Upload already in progress for ${fieldName}`);
+      return;
+    }
+
     if (!validateFile(file, fieldType)) {
       const allowedImageTypes = ["image/jpeg", "image/png", "image/jpg"];
       const allowedFileTypes = [
@@ -133,31 +247,43 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
             ? "Invalid File Format"
             : "File Size Limit Exceeded";
 
-      useDocumentFormStore.setState((state) => ({
+      formStore.setState((state) => ({
         fileUploads: {
           ...state.fileUploads,
           [fieldName]: {
             ...state.fileUploads[fieldName],
             uploadStatus: "error",
             fileError: errorMessage,
+            file: null,
+            preview: null,
           },
         },
       }));
       return;
     }
 
-    try {
-      useDocumentFormStore.setState((state) => ({
-        fileUploads: {
-          ...state.fileUploads,
-          [fieldName]: {
-            ...state.fileUploads[fieldName],
-            uploadStatus: "uploading",
-            fileError: null,
-          },
-        },
-      }));
+    // Clean up previous preview if it exists
+    const currentPreview = formStore.getState().fileUploads[fieldName]?.preview;
+    if (currentPreview && currentPreview.startsWith("blob:")) {
+      URL.revokeObjectURL(currentPreview);
+    }
 
+    // Set uploading state with new preview
+    const preview = fieldType === "Image" ? URL.createObjectURL(file) : null;
+    formStore.setState((state) => ({
+      fileUploads: {
+        ...state.fileUploads,
+        [fieldName]: {
+          ...state.fileUploads[fieldName],
+          uploadStatus: "uploading",
+          fileError: null,
+          file: file,
+          preview: preview,
+        },
+      },
+    }));
+
+    try {
       if (fieldType === "Image") {
         const MAX_WIDTH = 600;
         const MAX_SIZE_MB = 1;
@@ -165,13 +291,26 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
 
         if (fileSizeMB > MAX_SIZE_MB) {
           const reader = new FileReader();
-          reader.readAsDataURL(file);
           reader.onload = async (event) => {
-            const srcEncoded = event.target?.result as string;
-            const img = new window.Image();
-            img.src = srcEncoded;
+            try {
+              const srcEncoded = event.target?.result as string;
+              const img = new window.Image();
 
-            img.onload = async () => {
+              const imageLoadPromise = new Promise<void>((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = () => reject(new Error("Failed to load image"));
+                img.src = srcEncoded;
+              });
+
+              await imageLoadPromise;
+              const currentState = formStore.getState();
+              if (
+                currentState.fileUploads[fieldName]?.uploadStatus !==
+                "uploading"
+              ) {
+                return;
+              }
+
               const canvas = document.createElement("canvas");
               const scaleSize = MAX_WIDTH / img.width;
               canvas.width = MAX_WIDTH;
@@ -179,155 +318,68 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
 
               const ctx = canvas.getContext("2d");
               if (ctx) {
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = "high";
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                canvas.toBlob(
-                  async (blob) => {
-                    if (blob) {
-                      const compressedFile = new window.File(
-                        [blob],
-                        file.name,
-                        {
-                          type: "image/jpeg",
-                          lastModified: Date.now(),
-                        }
-                      );
-                      try {
-                        const result = await uploadFile(
-                          compressedFile,
-                          fieldName,
-                          fieldType,
-                          fileInputRefs
-                        );
-                        useDocumentFormStore.setState((state) => ({
-                          fileUploads: {
-                            ...state.fileUploads,
-                            [fieldName]: {
-                              ...state.fileUploads[fieldName],
-                              uploadStatus: "success",
-                              fileError: null,
-                            },
-                          },
-                          formValues: {
-                            ...state.formValues,
-                            [fieldName]: {
-                              value: result.url,
-                              is_default:
-                                state.formValues[fieldName]?.is_default ||
-                                false,
-                            },
-                          },
-                        }));
-                      } catch (error) {
-                        console.log("error",error);
-                        useDocumentFormStore.setState((state) => ({
-                          fileUploads: {
-                            ...state.fileUploads,
-                            [fieldName]: {
-                              ...state.fileUploads[fieldName],
-                              uploadStatus: "error",
-                              fileError: "Upload failed",
-                            },
-                          },
-                        }));
-                      }
-                    }
-                  },
-                  "image/jpeg",
-                  0.8
-                );
+
+                const blobPromise = new Promise<Blob | null>((resolve) => {
+                  canvas.toBlob(resolve, "image/jpeg", 0.8);
+                });
+
+                const blob = await blobPromise;
+                if (blob) {
+                  const currentState = formStore.getState();
+                  if (
+                    currentState.fileUploads[fieldName]?.uploadStatus !==
+                    "uploading"
+                  ) {
+                    return;
+                  }
+
+                  const compressedFile = new window.File([blob], file.name, {
+                    type: "image/jpeg",
+                    lastModified: Date.now(),
+                  });
+                  await handleUploadAndState(
+                    compressedFile,
+                    fieldName,
+                    fieldType
+                  );
+                }
               }
-            };
+            } catch (error) {
+              console.error("Image processing error:", error);
+              await handleUploadAndState(file, fieldName, fieldType);
+            }
           };
+
+          reader.onerror = () => {
+            console.error("FileReader error");
+            handleUploadAndState(file, fieldName, fieldType);
+          };
+
+          reader.readAsDataURL(file);
         } else {
-          try {
-            const result = await uploadFile(
-              file,
-              fieldName,
-              fieldType,
-              fileInputRefs
-            );
-            useDocumentFormStore.setState((state) => ({
-              fileUploads: {
-                ...state.fileUploads,
-                [fieldName]: {
-                  ...state.fileUploads[fieldName],
-                  uploadStatus: "success",
-                  fileError: null,
-                },
-              },
-              formValues: {
-                ...state.formValues,
-                [fieldName]: {
-                  value: result.url,
-                  is_default: state.formValues[fieldName]?.is_default || false,
-                },
-              },
-            }));
-          } catch (error) {
-            console.log("error",error);
-            useDocumentFormStore.setState((state) => ({
-              fileUploads: {
-                ...state.fileUploads,
-                [fieldName]: {
-                  ...state.fileUploads[fieldName],
-                  uploadStatus: "error",
-                  fileError: "Upload failed",
-                },
-              },
-            }));
-          }
+          await handleUploadAndState(file, fieldName, fieldType);
         }
       } else {
-        try {
-          const result = await uploadFile(
-            file,
-            fieldName,
-            fieldType,
-            fileInputRefs
-          );
-          useDocumentFormStore.setState((state) => ({
-            fileUploads: {
-              ...state.fileUploads,
-              [fieldName]: {
-                ...state.fileUploads[fieldName],
-                uploadStatus: "success",
-                fileError: null,
-              },
-            },
-            formValues: {
-              ...state.formValues,
-              [fieldName]: {
-                value: result.url,
-                is_default: state.formValues[fieldName]?.is_default || false,
-              },
-            },
-          }));
-        } catch (error) {
-          console.log("error",error);
-          useDocumentFormStore.setState((state) => ({
-            fileUploads: {
-              ...state.fileUploads,
-              [fieldName]: {
-                ...state.fileUploads[fieldName],
-                uploadStatus: "error",
-                fileError: "Upload failed",
-              },
-            },
-          }));
-        }
+        await handleUploadAndState(file, fieldName, fieldType);
       }
     } catch (error) {
-      console.log("error",error);
-      useDocumentFormStore.setState((state) => ({
-        fileUploads: {
-          ...state.fileUploads,
-          [fieldName]: {
-            ...state.fileUploads[fieldName],
-            uploadStatus: "error",
-            fileError: "An error occurred",
+      console.log("error", error);
+      const currentState = formStore.getState();
+      if (currentState.fileUploads[fieldName]?.uploadStatus === "uploading") {
+        formStore.setState((state) => ({
+          fileUploads: {
+            ...state.fileUploads,
+            [fieldName]: {
+              ...state.fileUploads[fieldName],
+              uploadStatus: "error",
+              fileError: "An error occurred",
+            },
           },
-        },
-      }));
+        }));
+      }
     }
   };
 
@@ -349,6 +401,7 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
     fileError,
     isRequired,
     fieldType,
+    fieldName,
   }: {
     preview: string | null;
     onFileChange: (file: File) => void;
@@ -359,129 +412,200 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
     fileError: string | null;
     isRequired: boolean;
     fieldType: "Image" | "File";
-  }) => (
-    <div className="space-y-2">
-      <Label className="font-semibold">
-        {label} {isRequired && <span className="text-destructive">*</span>}
-      </Label>
-      {fileError && (
-        <Alert variant="destructive" className="mb-2">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>{fileError}</AlertDescription>
-          </div>
-        </Alert>
-      )}
-      <div
-        className={cn(
-          "border-2 border-dashed rounded-lg p-4 text-center transition-colors duration-200",
-          preview
-            ? "border-success bg-success/10"
-            : "border-border hover:border-primary hover:bg-primary/5",
-          uploadStatus === "uploading" && "border-warning bg-warning/10",
-          uploadStatus === "success" && "border-success bg-success/10",
-          uploadStatus === "error" && "border-destructive bg-destructive/10"
+    fieldName: string;
+  }) => {
+    const isUploadingCurrentField = uploadStatus === "uploading";
+
+    const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      // Only prevent file selection if THIS specific field is uploading
+      if (files && files[0] && !isUploadingCurrentField) {
+        onFileChange(files[0]);
+        e.target.value = "";
+      }
+    };
+
+    const handleRemove = () => {
+      if (preview && preview.startsWith("blob:")) {
+        URL.revokeObjectURL(preview);
+      }
+      onRemove();
+    };
+
+    return (
+      <div className="space-y-2">
+        <Label className="font-semibold">
+          {label} {isRequired && <span className="text-destructive">*</span>}
+        </Label>
+        {fileError && (
+          <Alert variant="destructive" className="mb-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{fileError}</AlertDescription>
+            </div>
+          </Alert>
         )}
-      >
-        {!fileError && preview ? (
-          <div className="relative">
-            <div className="mb-2">
-              <p className="text-xs text-muted-foreground">{`Upload Status: ${
-                uploadStatus.charAt(0).toUpperCase() + uploadStatus.slice(1)
-              }`}</p>
-              {uploadStatus === "uploading" && (
-                <div className="w-full bg-secondary rounded-full h-1.5 mt-1">
-                  <div className="bg-primary h-1.5 rounded-full animate-pulse"></div>
+        <div
+          className={cn(
+            "border-2 border-dashed rounded-lg p-4 text-center transition-colors duration-200",
+            preview
+              ? "border-green-500 bg-muted/50"
+              : "border-gray-300 hover:border-blue-500 hover:bg-blue-50",
+            uploadStatus === "uploading" && "border-yellow-500 bg-yellow-50",
+            uploadStatus === "success" && "border-green-500 bg-muted/100",
+            uploadStatus === "error" && "border-red-500 bg-red-50"
+          )}
+        >
+          {!fileError && preview ? (
+            <div className="relative">
+              <div className="mb-2">
+                <p className="text-xs text-muted-foreground">{`Upload Status: ${
+                  uploadStatus.charAt(0).toUpperCase() + uploadStatus.slice(1)
+                }`}</p>
+                {uploadStatus === "uploading" && (
+                  <div className="w-full bg-secondary rounded-full h-1.5 mt-1">
+                    <div className="bg-primary h-1.5 rounded-full animate-pulse"></div>
+                  </div>
+                )}
+              </div>
+              {fieldType === "Image" ? (
+                <div className="relative">
+                  <Image
+                    src={preview}
+                    alt="Document preview"
+                    width={400}
+                    height={400}
+                    unoptimized
+                    priority={false}
+                    className="max-h-48 mx-auto rounded-lg object-contain"
+                    style={{ maxWidth: "100%", height: "auto" }}
+                    onError={(e) => {
+                      console.warn("Image preview failed to load");
+                    }}
+                    onLoad={() => {
+                      // Image loaded successfully
+                    }}
+                  />
+                  {/* Add fallback message for failed images */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 rounded-b-lg">
+                    {uploadStatus === "success"
+                      ? "Upload Complete"
+                      : "Uploading..."}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-4">
+                  <FileText className="h-12 w-12 text-muted-foreground mb-2" />
+                  <p className="text-sm font-medium break-words">
+                    {fileUploads[fieldName]?.file?.name || "Uploaded File"}
+                  </p>
                 </div>
               )}
-            </div>
-            {fieldType === "Image" ? (
-              <Image
-                src={preview}
-                alt="Document preview"
-                width={200}
-                height={200}
-                priority={true}
-                className="max-h-48 mx-auto rounded-md object-contain"
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center p-4">
-                <FileText className="h-12 w-12 text-muted-foreground mb-2" />
-                <p className="text-sm font-medium">
-                  {fileUploads[label]?.file?.name || "Uploaded File"}
-                </p>
-              </div>
-            )}
-            <Button
-              variant="destructive"
-              size="icon"
-              onClick={onRemove}
-              className="absolute top-0 right-0 rounded-full p-1 m-2"
-              type="button"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        ) : (
-          <div>
-            <input
-              ref={inputRef}
-              type="file"
-              accept={
-                fieldType === "Image" ? ".jpg,.jpeg,.png" : ".pdf,.doc,.docx"
-              }
-              onChange={(e) => {
-                if (e.target.files && e.target.files[0]) {
-                  onFileChange(e.target.files[0]);
-                }
-              }}
-              className="hidden"
-              id={`file-upload-${label.toLowerCase().replace(/\s+/g, "-")}`}
-            />
-            <Label
-              htmlFor={`file-upload-${label.toLowerCase().replace(/\s+/g, "-")}`}
-              className="cursor-pointer flex flex-col items-center"
-            >
-              {fieldType === "Image" ? (
-                <ImagePlus className="h-12 w-12 text-muted-foreground mb-2" />
-              ) : (
-                <File className="h-12 w-12 text-muted-foreground mb-2" />
-              )}
-              <p className="text-sm text-muted-foreground">
-                {uploadStatus === "uploading"
-                  ? "Uploading..."
-                  : uploadStatus === "success"
-                    ? "Upload Successful"
-                    : uploadStatus === "error"
-                      ? "Upload Failed, Try Again"
-                      : `Drag and drop or click to upload ${label.toLowerCase()}`}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {fieldType === "Image"
-                  ? "Supports JPG, JPEG, PNG (Max 10MB)"
-                  : "Supports PDF, DOC, DOCX (Max 10MB)"}
-              </p>
-            </Label>
-          </div>
-        )}
-      </div>
-    </div>
-  );
 
-  const renderField = (attribute: CheckinAttribute) => {
-    const { name, field_type, is_required, help_text, context, is_default } =
-      attribute;
+              <Button
+                variant="destructive"
+                size="icon"
+                onClick={handleRemove}
+                className="absolute top-0 right-0 rounded-full p-1 m-2"
+                type="button"
+                disabled={isUploadingCurrentField}
+                style={{ minHeight: "32px", minWidth: "32px" }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <div>
+              <input
+                ref={inputRef}
+                type="file"
+                accept={
+                  fieldType === "Image"
+                    ? "image/jpeg,image/jpg,image/png"
+                    : "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                }
+                onChange={handleFileInputChange}
+                className="hidden"
+                id={`file-upload-${label.toLowerCase().replace(/\s+/g, "-")}`}
+                disabled={isUploadingCurrentField}
+              />
+              <Label
+                htmlFor={`file-upload-${label.toLowerCase().replace(/\s+/g, "-")}`}
+                className={cn(
+                  "cursor-pointer flex flex-col items-center min-h-[120px] justify-center",
+                  isUploadingCurrentField && "cursor-not-allowed"
+                )}
+                style={{
+                  WebkitTapHighlightColor: "transparent",
+                  touchAction: "manipulation",
+                }}
+              >
+                {fieldType === "Image" ? (
+                  <ImagePlus className="h-12 w-12 text-muted-foreground mb-2" />
+                ) : (
+                  <File className="h-12 w-12 text-muted-foreground mb-2" />
+                )}
+                <p className="text-sm text-muted-foreground text-center px-2">
+                  {uploadStatus === "uploading"
+                    ? "Uploading..."
+                    : uploadStatus === "success"
+                      ? "Upload Successful"
+                      : uploadStatus === "error"
+                        ? "Upload Failed, Try Again"
+                        : fieldType === "Image"
+                          ? `Tap to upload ${label.toLowerCase()}`
+                          : `Tap to upload ${label.toLowerCase()}`}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 text-center px-2">
+                  {fieldType === "Image"
+                    ? "Supports JPG, JPEG, PNG (Max 10MB)"
+                    : "Supports PDF, DOC, DOCX (Max 10MB)"}
+                </p>
+              </Label>
+            </div>
+          )}
+          {fileUploads[fieldName]?.queue?.length > 0 && (
+            <div className="text-xs text-muted-foreground mt-2">
+              {fileUploads[fieldName].queue.length} file(s) waiting to upload
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderField = (attribute: AttributeType) => {
+    const {
+      name,
+      label: fieldLabel,
+      field_type,
+      is_required,
+      help_text,
+      context,
+      is_default,
+    } = attribute;
     const fieldKey = `${name}-${field_type}`;
+
+    const shouldShow = Show({
+      attribute,
+      formValues: formStore.getState().formValues,
+    });
+
+    if (!shouldShow) return null;
 
     switch (field_type) {
       case "Text":
         return (
           <div key={fieldKey} className="flex flex-col space-y-2">
             <Label className="font-semibold">
-              {name} {is_required && <span className="text-destructive">*</span>}
-              {is_default && <span className="text-success">(Default)</span>}
+              {fieldLabel}{" "}
+              {is_required && <span className="text-destructive">*</span>}
+              {help_text && (
+                <span>
+                  <InfoTooltip helpText={help_text} />
+                </span>
+              )}
             </Label>
-            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
             <Input
               type="text"
               value={formValues[name]?.value || ""}
@@ -497,10 +621,14 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
         return (
           <div key={fieldKey} className="flex flex-col space-y-2">
             <Label className="font-semibold">
-              {name} {is_required && <span className="text-destructive">*</span>}
-              {is_default && <span className="text-success">(Default)</span>}
+              {fieldLabel}{" "}
+              {is_required && <span className="text-destructive">*</span>}
+              {help_text && (
+                <span>
+                  <InfoTooltip helpText={help_text} />
+                </span>
+              )}
             </Label>
-            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
             <Textarea
               value={formValues[name]?.value || ""}
               onChange={(e) =>
@@ -516,16 +644,22 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
         return (
           <div key={fieldKey} className="flex flex-col space-y-2">
             <Label className="font-semibold">
-              {name} {is_required && <span className="text-destructive">*</span>}
-              {is_default && <span className="text-success">(Default)</span>}
+              {fieldLabel}{" "}
+              {is_required && <span className="text-destructive">*</span>}
+              {help_text && (
+                <span>
+                  <InfoTooltip helpText={help_text} />
+                </span>
+              )}
             </Label>
-            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
             <Input
               type="email"
               value={formValues[name]?.value || ""}
-              onChange={(e) =>
-                handleValueChange(name, e.target.value, is_default)
-              }
+              onChange={(e) => {
+                const value =
+                  e.target.value.trim() === "" ? null : e.target.value;
+                handleValueChange(name, value, is_default);
+              }}
               placeholder="example@domain.com"
             />
           </div>
@@ -535,10 +669,14 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
         return (
           <div key={fieldKey} className="flex flex-col space-y-2">
             <Label className="font-semibold">
-              {name} {is_required && <span className="text-destructive">*</span>}
-              {is_default && <span className="text-success">(Default)</span>}
+              {fieldLabel}{" "}
+              {is_required && <span className="text-destructive">*</span>}
+              {help_text && (
+                <span>
+                  <InfoTooltip helpText={help_text} />
+                </span>
+              )}
             </Label>
-            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
             <div className="react-phone-input-container">
               <PhoneInput
                 placeholder="Enter phone number"
@@ -560,6 +698,14 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
                   >
                 }
                 required={is_required}
+                style={{
+                  width: "100%",
+                  fontSize: "16px",
+                }}
+                inputStyle={{
+                  fontSize: "16px",
+                  width: "100%",
+                }}
               />
             </div>
             {!phoneNumberValidity[name] && (
@@ -575,10 +721,14 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
         return (
           <div key={fieldKey} className="flex flex-col space-y-2">
             <Label className="font-semibold">
-              {name} {is_required && <span className="text-destructive">*</span>}
-              {is_default && <span className="text-success">(Default)</span>}
+              {fieldLabel}{" "}
+              {is_required && <span className="text-destructive">*</span>}
+              {help_text && (
+                <span>
+                  <InfoTooltip helpText={help_text} />
+                </span>
+              )}
             </Label>
-            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
             <Input
               type="number"
               value={formValues[name]?.value || ""}
@@ -600,45 +750,167 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
         return (
           <div key={fieldKey} className="flex flex-col space-y-2">
             <Label className="font-semibold">
-              {name} {is_required && <span className="text-destructive">*</span>}
-              {is_default && <span className="text-success">(Default)</span>}
+              {fieldLabel}{" "}
+              {is_required && <span className="text-destructive">*</span>}
+              {help_text && (
+                <span>
+                  <InfoTooltip helpText={help_text} />
+                </span>
+              )}
             </Label>
-            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
-            <Popover
-              open={datePickerStates[name]}
-              onOpenChange={(isOpen) => toggleDatePicker(name, isOpen)}
-            >
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-left font-normal"
-                >
-                  <div className="flex items-center">
-                    <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
-                    {formValues[name]?.value ? (
-                      format(new Date(formValues[name].value), "PPP")
-                    ) : (
-                      <span className="text-muted-foreground">Select date...</span>
+            <div className="grid grid-cols-3 gap-2">
+              {/* Year Selector */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between text-left font-normal"
+                  >
+                    <span>
+                      {formValues[name]?.value
+                        ? new Date(formValues[name].value).getFullYear()
+                        : "Year"}
+                    </span>
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <div className="grid grid-cols-3 gap-1 p-2 max-h-60 overflow-auto">
+                    {Array.from({ length: 100 }, (_, i) => {
+                      const year = new Date().getFullYear() - 80 + i;
+                      return (
+                        <Button
+                          key={year}
+                          variant="ghost"
+                          onClick={() => {
+                            const currentDate = formValues[name]?.value
+                              ? new Date(formValues[name].value)
+                              : new Date();
+                            currentDate.setFullYear(year);
+                            handleValueChange(name, currentDate, is_default);
+                          }}
+                          className={cn(
+                            "w-full",
+                            formValues[name]?.value &&
+                              new Date(formValues[name].value).getFullYear() ===
+                                year
+                              ? "bg-accent"
+                              : ""
+                          )}
+                        >
+                          {year}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {/* Month Selector */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between text-left font-normal"
+                  >
+                    <span>
+                      {formValues[name]?.value
+                        ? format(new Date(formValues[name].value), "MMMM")
+                        : "Month"}
+                    </span>
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <div className="grid grid-cols-2 gap-1 p-2">
+                    {Array.from({ length: 12 }, (_, i) => {
+                      const month = i + 1;
+                      return (
+                        <Button
+                          key={month}
+                          variant="ghost"
+                          onClick={() => {
+                            const currentDate = formValues[name]?.value
+                              ? new Date(formValues[name].value)
+                              : new Date();
+                            currentDate.setMonth(month - 1);
+                            handleValueChange(name, currentDate, is_default);
+                          }}
+                          className={cn(
+                            "w-full",
+                            formValues[name]?.value &&
+                              new Date(formValues[name].value).getMonth() +
+                                1 ===
+                                month
+                              ? "bg-accent"
+                              : ""
+                          )}
+                        >
+                          {format(new Date(2000, month - 1, 1), "MMMM")}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between text-left font-normal"
+                  >
+                    <span>
+                      {formValues[name]?.value
+                        ? new Date(formValues[name].value).getDate()
+                        : "Day"}
+                    </span>
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <div className="grid grid-cols-4 gap-1 p-2">
+                    {Array.from(
+                      {
+                        length: formValues[name]?.value
+                          ? new Date(
+                              new Date(formValues[name].value).getFullYear(),
+                              new Date(formValues[name].value).getMonth() + 1,
+                              0
+                            ).getDate()
+                          : 31,
+                      },
+                      (_, i) => {
+                        const day = i + 1;
+                        return (
+                          <Button
+                            key={day}
+                            variant="ghost"
+                            onClick={() => {
+                              const currentDate = formValues[name]?.value
+                                ? new Date(formValues[name].value)
+                                : new Date();
+                              currentDate.setDate(day);
+                              handleValueChange(name, currentDate, is_default);
+                            }}
+                            className={cn(
+                              "w-full",
+                              formValues[name]?.value &&
+                                new Date(formValues[name].value).getDate() ===
+                                  day
+                                ? "bg-accent"
+                                : ""
+                            )}
+                          >
+                            {day}
+                          </Button>
+                        );
+                      }
                     )}
                   </div>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={
-                    formValues[name]?.value
-                      ? new Date(formValues[name].value)
-                      : undefined
-                  }
-                  onSelect={(date) => {
-                    handleValueChange(name, date, is_default);
-                    toggleDatePicker(name, false);
-                  }}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
         );
 
@@ -646,10 +918,14 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
         return (
           <div key={fieldKey} className="flex flex-col space-y-2">
             <Label className="font-semibold">
-              {name} {is_required && <span className="text-destructive">*</span>}
-              {is_default && <span className="text-success">(Default)</span>}
+              {fieldLabel}{" "}
+              {is_required && <span className="text-destructive">*</span>}
+              {help_text && (
+                <span>
+                  <InfoTooltip helpText={help_text} />
+                </span>
+              )}
             </Label>
-            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
             <div className="relative">
               <Input
                 type="time"
@@ -675,21 +951,19 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
 
         return (
           <div key={name}>
-            {is_default && (
-              <span className="text-xs text-primary">(default)</span>
-            )}
             <FileUploadBox
               preview={fileUploads[name]?.preview || null}
               onFileChange={(file) =>
                 compressAndUploadFile(file, name, field_type)
               }
               onRemove={() => removeFile(name)}
-              label={label}
+              label={fieldLabel}
               inputRef={(el) => (fileInputRefs.current[name] = el)}
               uploadStatus={fileUploads[name]?.uploadStatus || "idle"}
               fileError={fileUploads[name]?.fileError || null}
               isRequired={is_required}
               fieldType={field_type}
+              fieldName={name}
             />
           </div>
         );
@@ -698,10 +972,14 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
         return (
           <div key={fieldKey} className="flex flex-col space-y-2">
             <Label className="font-semibold">
-              {name} {is_required && <span className="text-destructive">*</span>}
-              {is_default && <span className="text-success">(Default)</span>}
+              {fieldLabel}{" "}
+              {is_required && <span className="text-destructive">*</span>}
+              {help_text && (
+                <span>
+                  <InfoTooltip helpText={help_text} />
+                </span>
+              )}
             </Label>
-            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
             <div className="relative">
               <Input
                 type="url"
@@ -727,10 +1005,9 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
               }
             />
             <Label htmlFor={name} className="font-semibold">
-              {name} {is_required && <span className="text-destructive">*</span>}
-              {is_default && <span className="text-success">(Default)</span>}
+              {fieldLabel}{" "}
+              {is_required && <span className="text-destructive">*</span>}
             </Label>
-            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
           </div>
         );
 
@@ -738,18 +1015,23 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
         const countryList = Object.values(countries).map((c) => ({
           value: c.name.common,
           label: c.name.common,
-          key: c.cca3,
+          key: c.cca2,
           region: c.region,
         }));
 
         return (
           <div key={fieldKey} className="flex flex-col space-y-2">
             <Label className="font-semibold">
-              {name} {is_required && <span className="text-destructive">*</span>}
-              {is_default && <span className="text-success">(Default)</span>}
+              {fieldLabel}{" "}
+              {is_required && <span className="text-destructive">*</span>}
+              {help_text && (
+                <span>
+                  <InfoTooltip helpText={help_text} />
+                </span>
+              )}
             </Label>
-            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
             <Popover
+              modal
               open={isCountryDropdownOpen}
               onOpenChange={setIsCountryDropdownOpen}
             >
@@ -759,7 +1041,8 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
                   role="combobox"
                   className="w-full justify-between"
                 >
-                  {selectedCountry || "Select Country..."}
+                  {countryList.find((c) => c.key === formValues[name]?.value)
+                    ?.label || "Select Country..."}
                   <ChevronsUpDown className="opacity-50" />
                 </Button>
               </PopoverTrigger>
@@ -782,19 +1065,19 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
                             setSelectedCountry(c.value);
                             setSelectedRegion(c.region);
                             setIsCountryDropdownOpen(false);
-                            handleValueChange(name, c.value, is_default);
+                            handleValueChange(name, c.key, is_default);
                           }}
                           className="cursor-pointer"
                         >
                           <Check
                             className={cn(
                               "mr-2 h-4 w-4",
-                              selectedCountry === c.value
+                              formValues[name]?.value === c.key
                                 ? "opacity-100"
                                 : "opacity-0"
                             )}
                           />
-                          {c.label}({c.region})
+                          {c.label} ({c.region})
                         </CommandItem>
                       ))}
                     </CommandGroup>
@@ -813,11 +1096,16 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
         return (
           <div key={fieldKey} className="flex flex-col space-y-2">
             <Label className="font-semibold">
-              {name} {is_required && <span className="text-destructive">*</span>}
-              {is_default && <span className="text-success">(Default)</span>}
+              {fieldLabel}{" "}
+              {is_required && <span className="text-destructive">*</span>}
+              {help_text && (
+                <span>
+                  <InfoTooltip helpText={help_text} />
+                </span>
+              )}
             </Label>
-            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
             <Popover
+              modal
               open={isRegionDropdownOpen}
               onOpenChange={setIsRegionDropdownOpen}
             >
@@ -878,15 +1166,16 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
           return (
             <div key={fieldKey} className="flex flex-col space-y-2">
               <Label className="font-semibold">
-                {name} {is_required && <span className="text-destructive">*</span>}
-                {is_default && (
-                  <span className="text-success">(Default)</span>
+                {fieldLabel}{" "}
+                {is_required && <span className="text-destructive">*</span>}
+                {help_text && (
+                  <span>
+                    <InfoTooltip helpText={help_text} />
+                  </span>
                 )}
               </Label>
-              {help_text && (
-                <p className="text-xs text-muted-foreground">{help_text}</p>
-              )}
               <Popover
+                modal
                 open={dropdownStates[name]}
                 onOpenChange={(isOpen) => toggleDropdown(name, isOpen)}
               >
@@ -942,7 +1231,15 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
           );
         }
 
-        const options = context?.options || {};
+        const options = Options({
+          options: context?.options || {},
+          formValues: formStore.getState().formValues,
+          attribute,
+        });
+        console.log(
+          JSON.stringify(options),
+          JSON.stringify(formStore.getState().formValues)
+        );
         const optionList = Object.keys(options).map((key) => ({
           value: key,
           label: options[key],
@@ -951,10 +1248,14 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
         return (
           <div key={name} className="flex flex-col space-y-2">
             <Label className="font-semibold">
-              {name} {is_required && <span className="text-destructive">*</span>}
-              {is_default && <span className="text-success">(Default)</span>}
+              {fieldLabel}{" "}
+              {is_required && <span className="text-destructive">*</span>}
+              {help_text && (
+                <span>
+                  <InfoTooltip helpText={help_text} />
+                </span>
+              )}
             </Label>
-            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
             <Popover
               open={dropdownStates[name]}
               onOpenChange={(isOpen) => toggleDropdown(name, isOpen)}
@@ -965,7 +1266,9 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
                   role="combobox"
                   className="w-full justify-between"
                 >
-                  {formValues[name]?.value || `Select ${name}...`}
+                  {optionList.find(
+                    (opt) => opt.value === formValues[name]?.value
+                  )?.label || `Select ${fieldLabel}...`}
                   <ChevronsUpDown className="opacity-50" />
                 </Button>
               </PopoverTrigger>
@@ -975,7 +1278,7 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
               >
                 <Command>
                   <CommandInput
-                    placeholder={`Search ${name.toLowerCase()}...`}
+                    placeholder={`Search ${fieldLabel.toLowerCase()}...`}
                     className="h-9"
                   />
                   <CommandList>
@@ -985,7 +1288,7 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
                         <CommandItem
                           key={option.value}
                           onSelect={() => {
-                            handleValueChange(name, option.label, is_default);
+                            handleValueChange(name, option.value, is_default);
                             toggleDropdown(name, false);
                           }}
                           className="cursor-pointer"
@@ -993,7 +1296,7 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
                           <Check
                             className={cn(
                               "mr-2 h-4 w-4",
-                              formValues[name]?.value === option.label
+                              formValues[name]?.value === option.value
                                 ? "opacity-100"
                                 : "opacity-0"
                             )}
@@ -1019,10 +1322,14 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
         return (
           <div key={name} className="flex flex-col space-y-2">
             <Label className="font-semibold">
-              {name} {is_required && <span className="text-destructive">*</span>}
-              {is_default && <span className="text-success">(Default)</span>}
+              {fieldLabel}{" "}
+              {is_required && <span className="text-destructive">*</span>}
+              {help_text && (
+                <span>
+                  <InfoTooltip helpText={help_text} />
+                </span>
+              )}
             </Label>
-            {help_text && <p className="text-xs text-muted-foreground">{help_text}</p>}
             <Popover
               open={dropdownStates[name]}
               onOpenChange={(isOpen) => toggleDropdown(name, isOpen)}
@@ -1121,17 +1428,36 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
           </div>
         );
 
+      case "Sign":
+        return (
+          <div key={fieldKey} className="flex flex-col space-y-2">
+            <label className="text-sm font-semibold">
+              {fieldLabel}{" "}
+              {is_required && <span className="text-red-500">*</span>}
+              {help_text && (
+                <span>
+                  <InfoTooltip helpText={help_text} />
+                </span>
+              )}
+            </label>
+            <SignatureComponent
+              fieldName={name}
+              defaultValue={formValues[name]?.value || ""}
+              onValidationChange={(isValid) => {}}
+              onSignatureChange={(dataUrl) => {
+                handleValueChange(name, dataUrl, is_default);
+              }}
+            />
+          </div>
+        );
+
       default:
         return null;
     }
   };
 
-  const sortedAttributes = [...documentAttributes].sort(
-    (a, b) => a.position - b.position
-  );
-
   return (
-    <div className="w-full px-6 mx-auto space-y-6">
+    <div className="w-full px-4 flex-1 p-4 space-y-4 overflow-auto">
       <DocumentValidation
         documentAttributes={documentAttributes}
         formValues={Object.fromEntries(
@@ -1141,7 +1467,18 @@ const DynamicDocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
         phoneNumberValidity={phoneNumberValidity}
         onValidationChange={onValidationChange}
       />
-      {sortedAttributes.map(renderField)}
+
+      {sectionOrder.map((section) => (
+        <React.Fragment key={section}>
+          {groupedAttributes[section]?.length > 0 && (
+            <h3 className="text-lg font-medium">{section}</h3>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+            {groupedAttributes[section]?.map(renderField)}
+          </div>
+        </React.Fragment>
+      ))}
     </div>
   );
 };

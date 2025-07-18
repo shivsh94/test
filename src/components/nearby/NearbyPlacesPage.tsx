@@ -1,16 +1,12 @@
 "use client";
 
-import { useMemo, useState, useRef } from "react";
+import Autoplay from "embla-carousel-autoplay";
+import { Search } from "lucide-react";
+import Image from "next/image";
+import { useMemo, useRef, useState } from "react";
 import Masonry from "react-masonry-css";
+
 import { Card } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { useNearbyStore } from "@/store/useProjectStore";
 import {
   Carousel,
   CarouselContent,
@@ -18,10 +14,15 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import Image from "next/image";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import Autoplay from "embla-carousel-autoplay";
-
+import { useNearbyStore } from "@/store/useProjectStore";
 
 interface Place {
   id: string;
@@ -67,11 +68,16 @@ export default function NearbyPlacesPage() {
   };
 
   if (Object.keys(placesByCategory).length === 0) {
-    return <div className="text-center py-10">No nearby places found.</div>;
+    return (
+      <div className="text-center py-10 flex flex-col items-center justify-center space-y-4">
+        <Search size={48} className="text-gray-400" />
+        <div className="text-gray-600">No nearby places found.</div>
+      </div>
+    );
   }
 
   return (
-    <div className="mx-auto px-4 space-y-8">
+    <div className="mx-auto px-4 space-y-8 pb-5">
       {Object.entries(placesByCategory).map(([category, places]) => (
         <CategorySection
           key={category}
@@ -95,11 +101,11 @@ function CategorySection({
   category,
   places,
   onPlaceClick,
-}: {
+}: Readonly<{
   category: string;
   places: Place[];
   onPlaceClick: (place: Place) => void;
-}) {
+}>) {
   const categoryId = category.toLowerCase().replace(/ /g, "-");
 
   return (
@@ -123,9 +129,9 @@ function CategorySection({
   );
 }
 
-function CategoryHeader({ title }: { title: string }) {
+function CategoryHeader({ title }: Readonly<{ title: string }>) {
   return (
-    <div className="flex gap-2 items-center w-full my-4">
+    <div className="flex gap-2 items-center w-full my-4 ">
       <Separator className="flex-1 bg-gradient-to-l from-gray-400 to-background" />
       <h1 className="text-lg font-bold text-center">{title}</h1>
       <Separator className="flex-1 bg-gradient-to-r from-gray-400 to-background" />
@@ -137,22 +143,25 @@ function PlaceCard({
   place,
   index,
   onClick,
-}: {
+}: Readonly<{
   place: Place;
   index: number;
   onClick: () => void;
-}) {
+}>) {
   const cardHeight = 200 + (index % 2) * 50;
 
   return (
     <Card
-      className="relative overflow-hidden rounded-md shadow-lg cursor-pointer transition-transform hover:scale-105"
+      className="relative overflow-hidden rounded-md shadow-lg cursor-pointer transition-transform hover:scale-105 "
       style={{ height: `${cardHeight}px` }}
       onClick={onClick}
     >
       <Image
-        src={place.cover || PLACEHOLDER_IMAGE}
+        src={place.cover ?? PLACEHOLDER_IMAGE}
         alt={place.name}
+        width={500}
+        height={500}
+        unoptimized
         className="absolute inset-0 w-full h-full object-cover"
         loading="lazy"
       />
@@ -163,10 +172,8 @@ function PlaceCard({
   );
 }
 
-function PhotoCarousel({ photos }: { photos: string[] }) {
-  const plugin = useRef(
-    Autoplay({ delay: 3000, stopOnInteraction: false })
-  );
+function PhotoCarousel({ photos }: Readonly<{ photos: string[] }>) {
+  const plugin = useRef(Autoplay({ delay: 3000, stopOnInteraction: false }));
 
   if (!photos || photos.length === 0) return null;
 
@@ -188,6 +195,9 @@ function PhotoCarousel({ photos }: { photos: string[] }) {
               <Image
                 src={photo || PLACEHOLDER_IMAGE}
                 alt={`Photo ${index + 1}`}
+                width={500}
+                height={500}
+                unoptimized
                 className="w-full h-full object-cover"
               />
             </div>
@@ -203,70 +213,72 @@ function PhotoCarousel({ photos }: { photos: string[] }) {
 function PlaceDetailsDialog({
   place,
   onClose,
-}: {
+}: Readonly<{
   place: Place | null;
   onClose: () => void;
   isFullScreen: boolean;
   setIsFullScreen: (value: boolean) => void;
-}) {
+}>) {
   if (!place) return null;
 
-  const photos = place.photos?.length
-    ? place.photos
-    : place.cover
-      ? [place.cover]
-      : [];
+  let photos: string[] = [];
 
+  if (place.photos?.length) {
+    photos = place.photos;
+  } else if (place.cover) {
+    photos = [place.cover];
+  }
   const hasPhotos = photos.length > 0;
   const hasDescription = !!place.description;
   const hasIframe = !!place.iframe;
 
   return (
-    <>
-      <Dialog open={!!place} onOpenChange={onClose}>
-        <DialogContent className="w-full max-w-md p-0 rounded-xl border-none overflow-y-auto max-h-[80vh]">
-          <div className={cn("space-y-4 relative", hasPhotos ? "" : "pt-4")}>
-            {photos.length > 1 ? (
-              <PhotoCarousel photos={photos} />
-            ) : hasPhotos ? (
-              <Image
-                src={photos[0] || PLACEHOLDER_IMAGE}
-                alt={place.name}
-                className="w-full h-64 object-cover rounded-t-lg"
+    <Dialog open={!!place} onOpenChange={onClose}>
+      <DialogContent className="w-full max-w-md p-0 rounded-xl border-none overflow-y-auto max-h-[80vh]">
+        <div className={cn("space-y-4 relative", hasPhotos ? "" : "pt-4")}>
+          {photos.length > 1 ? (
+            <PhotoCarousel photos={photos} />
+          ) : hasPhotos ? (
+            <Image
+              src={photos[0] || PLACEHOLDER_IMAGE}
+              alt={place.name}
+              width={500}
+              height={500}
+              unoptimized
+              className="w-full h-64 object-cover rounded-t-lg"
+            />
+          ) : null}
+
+          <div className="px-4 pb-4 space-y-4">
+            <DialogHeader>
+              <DialogTitle className="text-left font-bold text-xl">
+                {place.name}
+              </DialogTitle>
+            </DialogHeader>
+
+            {hasDescription && (
+              <div
+                className="prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: place.description ?? "" }}
               />
-            ) : null}
+            )}
 
-            <div className="px-4 pb-4 space-y-4">
-              <DialogHeader>
-                <DialogTitle className="text-left font-bold text-xl">
-                  {place.name}
-                </DialogTitle>
-              </DialogHeader>
-
-              {hasDescription && (
-                <div
-                  className="prose prose-sm max-w-none"
-                  dangerouslySetInnerHTML={{ __html: place.description || "" }}
-                />
-              )}
-
-              {hasIframe && (
-                <div
-                  className="rounded-lg mb-4 overflow-hidden"
-                  style={{
-                    width: "100%",
-                    height: "300px",
-                    border: "0",
-                  }}
-                  dangerouslySetInnerHTML={{
-                    __html: place.iframe || "",
-                  }}
-                />
-              )}
-            </div>
+            {hasIframe && (
+              <div
+                className="rounded-lg mb-4 overflow-hidden"
+                style={{
+                  width: "100%",
+                  height: "300px",
+                  border: "0",
+                }}
+                dangerouslySetInnerHTML={{
+                  __html: place.iframe ?? "",
+                }}
+              />
+            )}
           </div>
-        </DialogContent>
-      </Dialog>
-    </>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

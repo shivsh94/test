@@ -1,5 +1,5 @@
 // store/useProjectStore.ts
-import { create } from 'zustand';
+import { create } from "zustand";
 
 // Existing types
 type Company = {
@@ -15,8 +15,42 @@ type Company = {
   primary_text_color: string;
   secondary_text_color: string;
   font_family: string;
-}
+};
 
+type BooleanMap<T extends string> = {
+  [K in T]: boolean;
+};
+
+type ManagementServices = BooleanMap<
+  | "Iron"
+  | "Umbrella"
+  | "First Aid"
+  | "Hair Dryer"
+  | "Lost & Found"
+  | "Luggage Storage"
+  | "Staff Assistance"
+>;
+
+type MaintenanceServices = BooleanMap<
+  "Wifi Issue" | "Other Issue" | "Hot Water Issue" | "Air Conditioner Issue"
+>;
+
+type HousekeepingServices = BooleanMap<
+  | "Fresh Towels"
+  | "Linen Change"
+  | "Room Cleaning"
+  | "Garbage Clearance"
+  | "Washroom Cleaning"
+  | "Replenish Amenities"
+>;
+
+type Services = {
+  Management: ManagementServices;
+  Maintenance: MaintenanceServices;
+  Housekeeping: HousekeepingServices;
+};
+
+// Now your ProjectData:
 
 export type ProjectData = {
   name: string;
@@ -55,25 +89,27 @@ export type ProjectData = {
   force_read_tnc_enabled: boolean;
   company_id: string;
   company: Company;
-}
+  context: {
+    services: Services | null;
+  };
+};
 
 export type NearbyPlace = {
   name: string;
-  description: string; // HTML content
+  description: string;
   category: string;
-  iframe: string; // HTML iframe
-  cover: string; // URL string
-  photos: string[]; // Array of URLs
+  iframe: string;
+  cover: string;
+  photos: string[];
   is_disabled: boolean;
-  id: string; // UUID format
-}
+  id: string;
+};
 
 export type NearbyPlacesResponse = {
   items: NearbyPlace[];
   count: number;
 };
 
-// Notice Api 
 export interface Item {
   category_id: string;
   id: string;
@@ -95,16 +131,12 @@ export interface LabelItemsResponse {
   count: number;
 }
 
-
 export type idData = {
   id?: string;
   items: Item[];
   name?: string;
   contact?: string;
 };
-
-
-
 
 type ProjectStore = {
   data: ProjectData | null;
@@ -117,7 +149,6 @@ export const useSlugStore = create<ProjectStore>((set) => ({
   setData: (data) => set({ data }),
   clearData: () => set({ data: null }),
 }));
-
 
 type IdStore = {
   idData: idData | null;
@@ -138,7 +169,6 @@ export const useIdStore = create<IdStore>((set, get) => ({
   clearIdData: () => set({ idData: null }),
 }));
 
-// Nearby Places Store
 type NearbyStore = {
   nearbyPlaces: NearbyPlace[];
   nearbyCount: number;
@@ -149,17 +179,18 @@ type NearbyStore = {
 export const useNearbyStore = create<NearbyStore>((set) => ({
   nearbyPlaces: [],
   nearbyCount: 0,
-  setNearbyPlaces: (response) => set({ 
-    nearbyPlaces: response.items,
-    nearbyCount: response.count 
-  }),
-  clearNearbyPlaces: () => set({ 
-    nearbyPlaces: [],
-    nearbyCount: 0 
-  }),
+  setNearbyPlaces: (response) =>
+    set({
+      nearbyPlaces: response.items,
+      nearbyCount: response.count,
+    }),
+  clearNearbyPlaces: () =>
+    set({
+      nearbyPlaces: [],
+      nearbyCount: 0,
+    }),
 }));
 
-// Define types for the category outlet data
 export interface Timing {
   start: string;
   end: string;
@@ -181,7 +212,7 @@ export interface CategoryContext {
 }
 
 export interface CategoryItem {
-  id: string; 
+  id: string;
   name: string;
   outlet: string;
   position: number;
@@ -217,7 +248,7 @@ export interface MenuSubItem {
   weekend_price: string;
   holiday_price: string;
   discount: string;
-  position: number; 
+  position: number;
 }
 
 export type MenuItem = {
@@ -240,7 +271,7 @@ export type MenuItem = {
   taxes: MenuItemTax[];
   sub_items: MenuSubItem[];
   available?: boolean;
-}
+};
 
 export interface MenuResponse {
   items: MenuItem[];
@@ -267,41 +298,47 @@ type LabelStore = {
 export const useLabelStore = create<LabelStore>((set) => ({
   labelItems: [],
   labelCount: 0,
-  setLabelItems: (response) => set({ 
-    labelItems: response.items,
-    labelCount: response.count 
-  }),
+  setLabelItems: (response) =>
+    set({
+      labelItems: response.items,
+      labelCount: response.count,
+    }),
 }));
 
 export const useCategoryStore = create<CategoryStore>((set) => ({
   categories: [],
   categoryCount: 0,
-  setCategories: (response) => set({ 
-    categories: response.items,
-    categoryCount: response.count 
-  }),
-  addCategory: (category) => set((state) => ({ 
-    categories: [...state.categories, category],
-    categoryCount: state.categoryCount + 1
-  })),
-  updateCategory: (id, data) => set((state) => ({
-    categories: state.categories.map(cat => 
-      cat.id === id ? { ...cat, ...data } : cat
-    ),
-    categoryCount: state.categoryCount
-  })),
-  removeCategory: (id) => set((state) => ({
-    categories: state.categories.filter(cat => cat.id !== id),
-    categoryCount: state.categoryCount - 1
-  })),
-  clearCategories: () => set({ 
-    categories: [],
-    categoryCount: 0
-  }),
+  setCategories: (response) =>
+    set({
+      categories: response.items,
+      categoryCount: response.count,
+    }),
+  addCategory: (category) =>
+    set((state) => ({
+      categories: [...state.categories, category],
+      categoryCount: state.categoryCount + 1,
+    })),
+  updateCategory: (id, data) =>
+    set((state) => ({
+      categories: state.categories.map((cat) =>
+        cat.id === id ? { ...cat, ...data } : cat
+      ),
+      categoryCount: state.categoryCount,
+    })),
+  removeCategory: (id) =>
+    set((state) => ({
+      categories: state.categories.filter((cat) => cat.id !== id),
+      categoryCount: state.categoryCount - 1,
+    })),
+  clearCategories: () =>
+    set({
+      categories: [],
+      categoryCount: 0,
+    }),
 }));
 
 // Menu Items Store
- type MenuStore = {
+type MenuStore = {
   menuItems: MenuItem[];
   menuCount: number;
   setMenuItems: (response: MenuResponse) => void;
@@ -315,33 +352,37 @@ export const useCategoryStore = create<CategoryStore>((set) => ({
 export const useMenuStore = create<MenuStore>((set, get) => ({
   menuItems: [],
   menuCount: 0,
-  setMenuItems: (response) => set({ 
-    menuItems: response.items,
-    menuCount: response.count 
-  }),
-  addMenuItem: (menuItem) => set((state) => ({ 
-    menuItems: [...state.menuItems, menuItem],
-    menuCount: state.menuCount + 1
-  })),
-  updateMenuItem: (id, data) => set((state) => ({
-    menuItems: state.menuItems.map(item => 
-      item.id === id ? { ...item, ...data } : item
-    ),
-    menuCount: state.menuCount
-  })),
-  removeMenuItem: (id) => set((state) => ({
-    menuItems: state.menuItems.filter(item => item.id !== id),
-    menuCount: state.menuCount - 1
-  })),
-  clearMenuItems: () => set({ 
-    menuItems: [],
-    menuCount: 0
-  }),
+  setMenuItems: (response) =>
+    set({
+      menuItems: response.items,
+      menuCount: response.count,
+    }),
+  addMenuItem: (menuItem) =>
+    set((state) => ({
+      menuItems: [...state.menuItems, menuItem],
+      menuCount: state.menuCount + 1,
+    })),
+  updateMenuItem: (id, data) =>
+    set((state) => ({
+      menuItems: state.menuItems.map((item) =>
+        item.id === id ? { ...item, ...data } : item
+      ),
+      menuCount: state.menuCount,
+    })),
+  removeMenuItem: (id) =>
+    set((state) => ({
+      menuItems: state.menuItems.filter((item) => item.id !== id),
+      menuCount: state.menuCount - 1,
+    })),
+  clearMenuItems: () =>
+    set({
+      menuItems: [],
+      menuCount: 0,
+    }),
   getMenuItemsByCategory: (categoryId) => {
-    return get().menuItems.filter(item => item.category_id === categoryId);
-  }
+    return get().menuItems.filter((item) => item.category_id === categoryId);
+  },
 }));
-
 
 export const useAllStores = () => {
   const slugStore = useSlugStore();

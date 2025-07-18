@@ -1,12 +1,12 @@
-import { CartItem } from "@/store/useCartStore";
 import axios from "axios";
-axios.defaults.baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
+axios.defaults.baseURL = process.env.NEXT_PUBLIC_API_URL;
 
 export const getCart = async (entityId: string, customerId: string) => {
-  const res = await axios.get(
-    `/cart/${entityId}/customer/${customerId}/list/`
-  );
-  return res.data;
+  const res = await axios.get(`/cart/${entityId}/customer/${customerId}/list/`);
+  return {
+    items: res.data?.items || [],
+    count: res.data?.count || 0,
+  };
 };
 
 export const addToCart = async (
@@ -14,9 +14,9 @@ export const addToCart = async (
   customer_id: string,
   item_id: string,
   quantity: number,
-  sub_item_id: string | null = null
-): Promise<{ items: CartItem[]; count: number }> => {
-
+  sub_item_id: string | null = null,
+  token: string | null
+) => {
   try {
     const res = await axios.post(
       `/cart/${entity_id}/add/`,
@@ -25,6 +25,12 @@ export const addToCart = async (
         item_id,
         quantity,
         sub_item_id,
+      },
+      {
+        headers: {
+          Captcha: token,
+          "Content-Type": "application/json",
+        },
       }
     );
     return res.data;
@@ -39,7 +45,8 @@ export const updateCart = async (
   cart_id: string,
   item_id: string,
   sub_item_id: string | null,
-  quantity: number
+  quantity: number,
+  token: string | null = null
 ) => {
   if (!entity_id || !cart_id || !item_id) {
     throw new Error("Missing required parameters");
@@ -55,27 +62,43 @@ export const updateCart = async (
       ...(sub_item_id && { sub_item_id }),
     };
 
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (token) {
+      headers["Captcha"] = token;
+    }
+
     const res = await axios.put(
       `/cart/${entity_id}/update/${cart_id}/`,
-      payload
+      payload,
+      {
+        headers,
+      }
     );
+
     return res.data;
   } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const errorMessage =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        "Failed to update cart";
+      console.error("Error updating cart:", errorMessage, error.response?.data);
+      throw new Error(errorMessage);
+    }
     console.error("Error updating cart:", error);
-    throw error;
+    throw new Error("Failed to update cart due to unexpected error");
   }
 };
 
 export const deleteItem = async (entity_id: string, cart_id: string) => {
-  const res = await axios.delete(
-    `/cart/${entity_id}/delete/${cart_id}/`
-  );
+  const res = await axios.delete(`/cart/${entity_id}/delete/${cart_id}/`);
   return res.data;
 };
 
 export const clearCart = async (entity_id: string, customer_id: string) => {
-  const res = await axios.delete(
-    `/cart/${entity_id}/clear/${customer_id}/`
-  );
+  const res = await axios.delete(`/cart/${entity_id}/clear/${customer_id}/`);
   return res.data;
 };

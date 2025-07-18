@@ -1,5 +1,5 @@
 // stores/combinedStore.ts
-import { create } from 'zustand';
+import { create } from "zustand";
 
 interface DaySchedule {
   mon: boolean;
@@ -64,43 +64,44 @@ export interface UpsellCategory {
 }
 
 interface CombinedStoreState {
-  // Items state
   items: Item[];
   itemsCount: number;
   itemsLoading: boolean;
   itemsError: string | null;
-  
-  // Upsell state
+
   upsellCategories: UpsellCategory[];
   upsellCategoriesCount: number;
-  
-  // Combined actions
+
   setItemsData: (data: { items: Item[]; count: number }) => void;
   setItemsLoading: (loading: boolean) => void;
   setItemsError: (error: string | null) => void;
-  setUpsellCategoriesData: (data: { items: UpsellCategory[]; count: number }) => void;
+  setUpsellCategoriesData: (data: {
+    items: UpsellCategory[];
+    count: number;
+  }) => void;
 }
 
 export const useCombinedStore = create<CombinedStoreState>((set) => ({
-  // Initial state
   items: [],
   itemsCount: 0,
   itemsLoading: false,
   itemsError: null,
-  
+
   upsellCategories: [],
   upsellCategoriesCount: 0,
-  
-  setItemsData: (data) => set({ 
-    items: data.items, 
-    itemsCount: data.count 
-  }),
-  
+
+  setItemsData: (data) =>
+    set({
+      items: data.items,
+      itemsCount: data.count,
+    }),
+
   setItemsLoading: (loading) => set({ itemsLoading: loading }),
   setItemsError: (error) => set({ itemsError: error }),
-  
-  setUpsellCategoriesData: (data) => set({ 
-    upsellCategories: data.items, 
-    upsellCategoriesCount: data.count 
-  }),
+
+  setUpsellCategoriesData: (data) =>
+    set({
+      upsellCategories: data.items,
+      upsellCategoriesCount: data.count,
+    }),
 }));

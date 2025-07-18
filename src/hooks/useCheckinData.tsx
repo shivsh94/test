@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { useSlugStore } from "@/store/useProjectStore";
-import useCheckinStore from "@/store/useCheck-inStore";
+
 import { getCheckinAttributes } from "@/lib/check-inApis";
+import useCheckinStore from "@/store/useCheck-inStore";
+import { useSlugStore } from "@/store/useProjectStore";
 
 export const useCheckinAttributes = () => {
   const slugData = useSlugStore((state) => state.data);
@@ -22,10 +23,9 @@ export const useCheckinAttributes = () => {
         throw new Error("Entity ID is required");
       }
       return await getCheckinAttributes(entityId);
-
     },
     enabled: !!entityId,
-    staleTime: 1000 * 60 * 5, 
+    staleTime: 1000 * 60 * 5,
   });
 
   useEffect(() => {

@@ -1,9 +1,10 @@
-'use client';
+"use client";
 
-import Menu from '@/components/bar/Menu';
-import FoodComponent from '@/components/bar/FoodComponent';
-import useCartStore from '@/store/useCartStore';
-import CartButton from '@/components/cart/cartButton';
+import FoodComponent from "@/components/bar/FoodComponent";
+import CartButton from "@/components/cart/cartButton";
+import useCartStore from "@/store/useCartStore";
+
+import Menu from "../../../../components/common/foodBar/Menu";
 
 export default function Page() {
   const { cartItems } = useCartStore();
